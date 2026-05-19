@@ -1,0 +1,13 @@
+node_modules/
+.env
+*.log
+.DS_Store
+coverage/
+dist/
+build/
+.env.local
+.env.production
+.client_secret.json
+.token.json
+credential.json
+token.json

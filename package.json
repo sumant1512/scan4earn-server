@@ -1,0 +1,75 @@
+{
+  "name": "scan4earn-server",
+  "version": "1.0.0",
+  "description": "TMS Backend Server - Node.js/Express/PostgreSQL",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:db": "node test-db-health.js",
+
+    "test:e2e": "E2E_TESTS_ENABLED=true jest --testPathPattern=e2e.test.js --runInBand",
+    "test:e2e:all": "E2E_TESTS_ENABLED=true jest --testPathPattern=e2e.test.js --runInBand",
+    "test:e2e:verbose": "E2E_TESTS_ENABLED=true jest --testPathPattern=e2e.test.js --runInBand --verbose",
+    "test:e2e:watch": "E2E_TESTS_ENABLED=true jest --testPathPattern=e2e.test.js --watch",
+    "test:e2e:coverage": "E2E_TESTS_ENABLED=true jest --testPathPattern=e2e.test.js --coverage --runInBand",
+
+    "test:e2e:super-admin": "E2E_TESTS_ENABLED=true jest --testPathPattern='(tenant-admin-e2e|template-e2e)' --runInBand",
+    "test:e2e:tenant-admin": "E2E_TESTS_ENABLED=true jest --testPathPattern='(tenant-admin-e2e|template-e2e|verification-app-e2e|product-e2e|category-e2e)' --runInBand",
+
+    "test:e2e:auth": "E2E_TESTS_ENABLED=true jest src/__tests__/e2e.test.js --runInBand",
+    "test:e2e:tenants": "E2E_TESTS_ENABLED=true jest src/__tests__/tenant-admin-e2e.test.js --runInBand",
+    "test:e2e:templates": "E2E_TESTS_ENABLED=true jest src/__tests__/template-e2e.test.js --runInBand",
+    "test:e2e:apps": "E2E_TESTS_ENABLED=true jest src/__tests__/verification-app-e2e.test.js --runInBand",
+    "test:e2e:products": "E2E_TESTS_ENABLED=true jest src/__tests__/product-e2e.test.js --runInBand",
+    "test:e2e:categories": "E2E_TESTS_ENABLED=true jest src/__tests__/category-e2e.test.js --runInBand",
+
+    "test:integration": "jest --testPathPattern=integration.test.js",
+    "test:unit": "jest --testPathPattern=\\.test\\.js$ --testPathIgnorePatterns=e2e.test.js,integration.test.js"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ]
+  },
+  "keywords": [
+    "tms",
+    "transport",
+    "logistics",
+    "backend"
+  ],
+  "engines": {
+    "node": "22.22.0",
+    "npm": ">=10.9.4"
+  },
+  "packageManager": "npm@10.9.4",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "exceljs": "^4.4.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "googleapis": "^171.4.0",
+    "helmet": "^7.1.0",
+    "joi": "^17.11.0",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^6.9.7",
+    "pg": "^8.11.3",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2",
+    "supertest": "^6.3.4"
+  }
+}
