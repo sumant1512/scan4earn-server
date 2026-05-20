@@ -1,0 +1,51 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ${SERVICE_NAME}
+  namespace: ${GCP_PROJECT_ID}
+  labels: 
+    env_type: dev
+  annotations:
+    run.googleapis.com/ingress: internal
+    run.googleapis.com/invoker-iam-disabled: "true"
+    run.googleapis.com/minScale: "${MIN_INSTANCES}"
+spec:
+  template:
+    metadata:
+      labels:
+        env_type: ${ENV_TYPE}
+      annotations:
+        run.googleapis.com/vpc-access-connector: mscan-connector
+        run.googleapis.com/vpc-access-egress: all-traffic
+    spec:
+      serviceAccountName: gha-mscan-server
+      containers:
+        - name: ${SERVICE_CONTAINER_NAME}
+          image: ${SERVICE_IMAGE}
+          ports:
+            - containerPort: "${SERVER_PORT}"
+          resources:
+            limits:
+              cpu: "${SERVICE_CONTAINER_CPU}"
+              memory: ${SERVICE_CONTAINER_MEMORY}   
+          env: 
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: hostname
+                  key: latest
+      
+            - name: DB_PORT
+              value: "${DB_PORT}"
+      
+            - name: DB_NAME
+              value: "${DB_NAME}"
+
+            - name: DB_USER
+              value: "${DB_USER}"
+            
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-password
+                  key: latest

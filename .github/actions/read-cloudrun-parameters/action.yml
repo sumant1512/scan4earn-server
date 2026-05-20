@@ -1,0 +1,35 @@
+
+name: Read Cloud Run Parameters
+description: Read Cloud Run parameters from config files
+
+inputs:
+  config_file:
+    description: "Cloud Run config file"
+    type: string
+    required: false
+    default: cloudrun-config/global-cloudrun.yaml
+
+  env_file:
+    description: "Optional application env file"
+    type: string
+    required: false
+    default: cloudrun-config/global-env-parameters.yaml
+
+runs:
+  using: "composite"
+  steps:
+    - name: Load parameters from config files
+      shell: bash
+      run: |
+        set -e
+
+        echo "Loading Cloud Run config: ${{ inputs.config_file }}"
+        python cloudrun-config/utils/readCloudRunConfig.py "${{ inputs.config_file }}" "${{ inputs.env_file }}"
+
+        if [ -f target.json ]; then
+          jq -r 'to_entries[] | "\(.key)=\(.value | tostring | gsub("\""; ""))"' target.json >> "$GITHUB_ENV"
+          echo "Loaded parameters into GITHUB_ENV"
+        else
+          echo "target.json was not generated"
+          exit 1
+        fi

@@ -1,0 +1,52 @@
+SERVER_PORT: 8080
+
+# Server Configuration
+PORT: 8080
+NODE_ENV: development
+
+# Database Configuration
+DB_HOST: localhost
+DB_PORT: 5432
+DB_NAME: scan4earn_db
+DB_USER: postgres
+DB_PASSWORD: db-password
+
+# JWT Configuration
+JWT_ACCESS_SECRET: your_jwt_access_secret_key_here
+JWT_REFRESH_SECRET: your_jwt_refresh_secret_key_here
+JWT_ACCESS_EXPIRY: 30m
+JWT_REFRESH_EXPIRY: 7d
+
+# Email Configuration (Gmail)
+EMAIL_SERVICE: gmail
+EMAIL_USER: your-email@gmail.com
+EMAIL_PASSWORD: your-app-specific-password
+EMAIL_FROM: your-email@gmail.com
+
+# OTP Configuration
+OTP_EXPIRY_MINUTES: 10
+OTP_LENGTH: 6
+
+# Subdomain Routing Configuration
+DOMAIN_BASE: mscan.com
+ENABLE_SUBDOMAIN_ROUTING: true
+RESERVED_SUBDOMAINS: "www,api,admin,app,mail,ftp,smtp,pop,imap,localhost,staging,dev,test,demo,docs,cdn,static,assets,blog,shop,store"
+
+# CORS Configuration
+CORS_ORIGIN: "http://localhost:4200,http://*.localhost:4200"
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS: 900000
+RATE_LIMIT_MAX_REQUESTS: 100
+
+# Application URLs
+FRONTEND_URL: http://localhost:4200
+BACKEND_URL: http://localhost:3000
+
+# Google OAuth / Email Dev
+CLIENT_ID: 144348143194-ada37m5ep8k916kscvff6salmti34jg3.apps.googleusercontent.com
+CLIENT_SECRET: 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
+
+GOOGLE_OAUTH_CREDENTIALS: test
+
+GOOGLE_OAUTH_TOKEN: test11

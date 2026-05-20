@@ -1,0 +1,103 @@
+name: Cleanup Artifact Registry Images
+
+on:
+  push:
+    branches:
+      - cleanup
+
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 */4 * * *"
+
+env:
+  PROJECT_ID: orbital-nirvana-492005-q3
+  GAR_LOCATION: us-east4
+
+jobs:
+  cleanup-images:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        repository:
+          - mscan-server
+          - mscan-client
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Delete docker images
+        run: |
+          REPO="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ matrix.repository }}"
+
+          echo "Processing repository: $REPO"
+
+          gcloud artifacts docker images list "$REPO" \
+            --include-tags \
+            --format="get(DIGEST)" | sort -u > digests.txt
+
+          while read DIGEST; do
+            if [ ! -z "$DIGEST" ]; then
+              IMAGE="$REPO@$DIGEST"
+
+              echo "Deleting image: $IMAGE"
+
+              gcloud artifacts docker images delete "$IMAGE" \
+                --delete-tags \
+                --quiet || true
+            fi
+          done < digests.txt
+
+  delete-cloud-run-services:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Delete all Cloud Run services
+        run: |
+          echo "Fetching Cloud Run services..."
+
+          gcloud run services list \
+            --region="${{ env.GAR_LOCATION }}" \
+            --format="value(metadata.name)" > services.txt
+
+          cat services.txt
+
+          while read SERVICE; do
+            if [ ! -z "$SERVICE" ]; then
+              echo "Deleting service: $SERVICE"
+
+              gcloud run services delete "$SERVICE" \
+                --region="${{ env.GAR_LOCATION }}" \
+                --quiet || true
+            fi
+          done < services.txt

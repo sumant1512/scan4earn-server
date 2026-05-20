@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info:
+  title: My API
+  description: API specification created in VS Code
+  version: 1.0.0
+
+servers:
+  - url: https://api.example.com
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service is up

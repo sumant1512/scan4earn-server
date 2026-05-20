@@ -1,0 +1,32 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ${SERVICE_NAME}
+  namespace: ${GCP_PROJECT_ID}
+  labels: 
+    env_type: dev
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/invoker-iam-disabled: "true"
+    run.googleapis.com/minScale: "${MIN_INSTANCES}"
+spec:
+  template:
+    metadata:
+      labels:
+        env_type: ${ENV_TYPE}
+      # annotations:
+      #   run.googleapis.com/vpc-access-connector: test
+      #   run.googleapis.com/vpc-access-egress: all-traffic
+    spec:
+      serviceAccountName: 
+      containers:
+        - name: ${SERVICE_CONTAINER_NAME}
+          image: ${SERVICE_IMAGE}
+          ports:
+            - containerPort: "${SERVER_PORT}"
+          resources:
+            limits:
+              cpu: "${SERVICE_CONTAINER_CPU}"
+              memory: ${SERVICE_CONTAINER_MEMORY}
+          env: []
+         

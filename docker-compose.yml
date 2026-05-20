@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: mscan_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./mscan-server/database/full_setup.sql:/docker-entrypoint-initdb.d/01_full_setup.sql:ro
+      - ./mscan-server/database/APPLY_FEATURE_FLAGS_SCHEMA.sql:/docker-entrypoint-initdb.d/03_feature_flags.sql:ro
+      - ./mscan-server/database/seeds/001_create_sample_templates.sql:/docker-entrypoint-initdb.d/02_create_sample_templates.sql:ro
+
+  mscan-client:
+    build:
+      context: ./mscan-client
+      dockerfile: Dockerfile
+    ports:
+      - "4200:80"
+    depends_on:
+      - db
+
+  mscan-server:
+    build:
+      context: ./mscan-server
+      dockerfile: Dockerfile
+    env_file:
+      - ./mscan-server/.env
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  db_data:

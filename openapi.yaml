@@ -1,0 +1,696 @@
+openapi: '3.0.3'
+info:
+  title: TMS (Transport Management System) API
+  description: |
+    Multi-tenant Transport Management System with OTP-based authentication.
+    
+    ## Authentication
+    - All protected endpoints require a JWT access token in the Authorization header
+    - Format: `Authorization: Bearer <token>`
+    - Access tokens expire after 30 minutes
+    - Refresh tokens expire after 7 days
+    
+    ## Roles
+    - **SUPER_ADMIN**: Full system access, can create tenants/customers
+    - **TENANT_ADMIN**: Manage their own tenant
+    - **TENANT_USER**: Basic tenant access
+  version: '1.0.0'
+  contact:
+    name: TMS API Support
+    email: support@tms.example.com
+
+servers:
+  - url: http://localhost:8080/api
+    description: Local development server
+  - url: https://api.tms.example.com/api
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: OTP-based authentication endpoints
+  - name: Users
+    description: User and customer management
+  - name: Dashboard
+    description: Role-based dashboard statistics
+
+paths:
+  /auth/request-otp:
+    post:
+      tags:
+        - Authentication
+      summary: Request OTP for login
+      description: |
+        Generates and sends a 6-digit OTP to the user's email address.
+        OTP is valid for 5 minutes. Rate limited to 3 requests per 15 minutes per email.
+      operationId: requestOTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: admin@example.com
+      responses:
+        '200':
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                message: OTP sent to your email
+        '400':
+          description: Invalid email format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many requests (rate limit exceeded)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: Too many OTP requests. Please try again later.
+
+  /auth/verify-otp:
+    post:
+      tags:
+        - Authentication
+      summary: Verify OTP and login
+      description: |
+        Verifies the OTP and returns JWT access and refresh tokens.
+        OTP must be used within 5 minutes and can only be used once.
+      operationId: verifyOTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - otp
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: admin@example.com
+                otp:
+                  type: string
+                  pattern: '^\d{6}$'
+                  example: '123456'
+      responses:
+        '200':
+          description: OTP verified successfully, tokens returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Login successful
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      refreshToken:
+                        type: string
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      userType:
+                        type: string
+                        enum: [SUPER_ADMIN, TENANT_ADMIN, TENANT_USER]
+                        example: TENANT_ADMIN
+        '401':
+          description: Invalid or expired OTP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Invalid request format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: |
+        Uses a valid refresh token to obtain a new access token and refresh token pair.
+        The old tokens are invalidated.
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: New tokens generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Token refreshed
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/context:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user context
+      description: Returns detailed information about the currently authenticated user
+      operationId: getUserContext
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User context retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized - Invalid or missing token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      description: Invalidates both access and refresh tokens by adding them to blacklist
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                message: Logged out successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/customers:
+    post:
+      tags:
+        - Users
+      summary: Register new customer (Super Admin only)
+      description: |
+        Creates a new tenant and tenant admin user. Only accessible by SUPER_ADMIN role.
+        Sends welcome email to the new tenant admin.
+      operationId: createCustomer
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - companyName
+                - adminEmail
+                - adminFullName
+                - phone
+                - tenantCode
+              properties:
+                companyName:
+                  type: string
+                  example: Acme Transport Co
+                tenantCode:
+                  type: string
+                  pattern: '^[A-Z0-9]+$'
+                  example: ACME01
+                  description: Uppercase alphanumeric code for tenant
+                adminEmail:
+                  type: string
+                  format: email
+                  example: admin@acme.com
+                adminFullName:
+                  type: string
+                  example: John Smith
+                phone:
+                  type: string
+                  pattern: '^\+?[1-9]\d{1,14}$'
+                  example: '+1234567890'
+                address:
+                  type: string
+                  example: 123 Main St, City, State 12345
+      responses:
+        '201':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Customer registered successfully
+                  data:
+                    type: object
+                    properties:
+                      tenantId:
+                        type: string
+                        format: uuid
+                      userId:
+                        type: string
+                        format: uuid
+                      companyName:
+                        type: string
+                      adminEmail:
+                        type: string
+        '400':
+          description: Validation error or duplicate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Not a Super Admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Users
+      summary: Get all customers (Super Admin only)
+      description: Returns list of all registered customers/tenants
+      operationId: getAllCustomers
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Customers list retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tenant'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Not a Super Admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/profile:
+    get:
+      tags:
+        - Users
+      summary: Get user profile
+      description: Returns the authenticated user's profile information
+      operationId: getUserProfile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Users
+      summary: Update user profile
+      description: Updates the authenticated user's profile information
+      operationId: updateUserProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                  example: Jane Doe
+                phone:
+                  type: string
+                  example: '+1234567890'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Profile updated successfully
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /dashboard/stats:
+    get:
+      tags:
+        - Dashboard
+      summary: Get dashboard statistics
+      description: |
+        Returns role-specific dashboard statistics:
+        - Super Admin: System-wide stats (all tenants, all users)
+        - Tenant users: Tenant-specific stats only
+      operationId: getDashboardStats
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard statistics retrieved
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/SuperAdminDashboard'
+                  - $ref: '#/components/schemas/TenantDashboard'
+              examples:
+                superAdmin:
+                  summary: Super Admin Dashboard
+                  value:
+                    success: true
+                    data:
+                      totalTenants: 15
+                      totalUsers: 234
+                      activeSessions24h: 45
+                      systemHealth: healthy
+                      recentTenants:
+                        - id: 550e8400-e29b-41d4-a716-446655440000
+                          companyName: Acme Transport
+                          contactEmail: admin@acme.com
+                          createdAt: '2024-12-01T10:00:00Z'
+                tenantUser:
+                  summary: Tenant Dashboard
+                  value:
+                    success: true
+                    data:
+                      companyName: Acme Transport
+                      totalUsers: 12
+                      activeUsers24h: 8
+                      recentActivity:
+                        - action: LOGIN
+                          user: John Doe
+                          email: john@acme.com
+                          timestamp: '2024-12-20T15:30:00Z'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token obtained from /auth/verify-otp or /auth/refresh
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation successful
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Error message description
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        fullName:
+          type: string
+          example: John Doe
+        role:
+          type: string
+          enum: [SUPER_ADMIN, TENANT_ADMIN, TENANT_USER]
+          example: TENANT_ADMIN
+        tenantId:
+          type: string
+          format: uuid
+          nullable: true
+          example: 660e8400-e29b-41d4-a716-446655440001
+        phone:
+          type: string
+          example: '+1234567890'
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: '2024-01-15T10:30:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2024-12-20T14:25:00Z'
+
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 660e8400-e29b-41d4-a716-446655440001
+        tenantCode:
+          type: string
+          example: ACME01
+        companyName:
+          type: string
+          example: Acme Transport Co
+        contactEmail:
+          type: string
+          format: email
+          example: admin@acme.com
+        phone:
+          type: string
+          example: '+1234567890'
+        address:
+          type: string
+          example: 123 Main St, City, State 12345
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: '2024-01-15T10:30:00Z'
+
+    SuperAdminDashboard:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            totalTenants:
+              type: integer
+              example: 15
+            totalUsers:
+              type: integer
+              example: 234
+            activeSessions24h:
+              type: integer
+              example: 45
+            systemHealth:
+              type: string
+              enum: [healthy, warning, critical]
+              example: healthy
+            recentTenants:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  companyName:
+                    type: string
+                  contactEmail:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+
+    TenantDashboard:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            companyName:
+              type: string
+              example: Acme Transport Co
+            totalUsers:
+              type: integer
+              example: 12
+            activeUsers24h:
+              type: integer
+              example: 8
+            recentActivity:
+              type: array
+              items:
+                type: object
+                properties:
+                  action:
+                    type: string
+                    example: LOGIN
+                  user:
+                    type: string
+                    example: John Doe
+                  email:
+                    type: string
+                    example: john@acme.com
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: '2024-12-20T15:30:00Z'
