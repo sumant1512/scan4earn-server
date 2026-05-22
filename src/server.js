@@ -6,7 +6,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const db = require('./config/database');
-
 // Import routes
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
@@ -59,31 +58,39 @@ const PORT = process.env.PORT || 8080;
 app.use(helmet());
 
 // CORS Configuration - Support wildcard subdomains
-const baseDomain = process.env.DOMAIN_BASE || 'localhost';
+const baseDomain = process.env.DOMAIN_BASE || 'scan4earn.com';
 const corsOptions = {
-  origin: function(origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, curl, etc.)
     if (!origin) return callback(null, true);
-    
+
     const allowedOrigins = [
       `http://localhost:4200`,
       `http://localhost:8081`,
       `http://localhost:8080`,
       `http://${baseDomain}`,
       `https://${baseDomain}`,
+      'https://scan4earn.com',   // ✅ add this
+      'https://www.scan4earn.com' // ✅ optional but recommended
     ];
-    
-    // Check if origin matches allowed origins or subdomain pattern
-    const isAllowed = allowedOrigins.includes(origin) ||
-      // Match http://subdomain.localhost:port or http://subdomain.localhost
+
+    const isAllowed =
+      // Exact match
+      allowedOrigins.includes(origin) ||
+
+      // Allow subdomains of localhost
       /^https?:\/\/[a-z0-9-]+\.localhost(:\d+)?$/.test(origin) ||
-      // Match https://subdomain.domain.tld or http://subdomain.domain.tld
-      new RegExp(`^https?://[a-z0-9-]+\\.${baseDomain.replace('.', '\\.')}$`).test(origin);
-    
+
+      // Allow subdomains of your base domain (single-level)
+      new RegExp(`^https?://[a-z0-9-]+\\.${baseDomain.replace('.', '\\.')}$`).test(origin) ||
+
+      // ✅ Allow ALL Google Cloud Run URLs
+      /^https:\/\/[a-z0-9-]+-[a-z0-9]+-[a-z0-9]+\.run\.app$/.test(origin);
+
     if (isAllowed) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error(`Not allowed by CORS: ${origin}`));
     }
   },
   credentials: true
@@ -320,43 +327,64 @@ let dbStatus = {
  */
 async function checkDatabaseWithRetry(maxAttempts = 3) {
   let lastError = null;
-  const RETRY_INTERVAL = 5000; // 5 seconds
-  
+
+  const RETRY_INTERVAL = 5000;
+
+  const dbConfig = {
+    host: process.env.DB_HOST?.trim(),
+    port: Number(process.env.DB_PORT),
+    database: process.env.DB_NAME?.trim(),
+    user: process.env.DB_USER?.trim(),
+    passwordExists: !!process.env.DB_PASSWORD
+  };
+
+  console.log('\n📦 DATABASE CONFIG');
+  console.log(dbConfig);
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       console.log(`\n🔄 Database connection attempt ${attempt}/${maxAttempts}...`);
       const health = await db.checkHealth();
-      
+
       if (health.success) {
         console.log(`✅ Connected on attempt ${attempt}!`);
         return health;
-      } else {
-        lastError = health;
-        console.error(`❌ Attempt ${attempt} failed: ${health.error}`);
       }
+      lastError = health;
+
+      console.error('❌ HEALTH CHECK FAILED');
+      console.error(health);
+
     } catch (err) {
+      console.error('\n❌ DATABASE ERROR');
+      console.error({
+        message: err.message,
+        code: err.code,
+        stack: err.stack
+      });
+
       lastError = {
         success: false,
         status: 'error',
         error: err.message,
         code: err.code
       };
-      console.error(`❌ Attempt ${attempt} error: ${err.message}`);
     }
-    
+
     // Wait before retry (fixed 5-second interval)
     if (attempt < maxAttempts) {
       console.log(`⏳ Waiting ${RETRY_INTERVAL / 1000}s before retry...`);
-      await new Promise(resolve => setTimeout(resolve, RETRY_INTERVAL));
+      await new Promise(resolve =>
+        setTimeout(resolve, RETRY_INTERVAL)
+      );
     }
   }
-  
-  // All attempts failed
-  console.error(`\n⚠️  All ${maxAttempts} database connection attempts failed`);
+
+  console.error(`\n⚠️ All ${maxAttempts} attempts failed`);
   return lastError || {
     success: false,
     status: 'disconnected',
-    error: 'Failed to connect to database after all retries'
+    error: 'Unknown database error'
   };
 }
 

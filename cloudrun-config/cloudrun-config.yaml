@@ -14,9 +14,6 @@ spec:
     metadata:
       labels:
         env_type: ${ENV_TYPE}
-      annotations:
-        run.googleapis.com/vpc-access-connector: mscan-connector
-        run.googleapis.com/vpc-access-egress: all-traffic
     spec:
       serviceAccountName: gha-mscan-server
       containers:
@@ -34,7 +31,32 @@ spec:
                 secretKeyRef:
                   name: hostname
                   key: latest
-      
+                  
+            - name: GOOGLE_OAUTH_CREDENTIALS
+              valueFrom:
+                secretKeyRef:
+                  name: GOOGLE_OAUTH_CREDENTIALS
+                  key: latest
+                  
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: JWT_REFRESH_SECRET
+                  key: latest
+
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: JWT_ACCESS_SECRET
+                  key: latest
+
+
+            - name: GOOGLE_OAUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: GOOGLE_OAUTH_TOKEN
+                  key: latest
+                  
             - name: DB_PORT
               value: "${DB_PORT}"
       
@@ -48,4 +70,4 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: db-password
-                  key: latest
+                  key: latest       

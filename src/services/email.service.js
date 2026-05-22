@@ -165,7 +165,7 @@ const sendWelcomeEmail = async (to, companyName) => {
               <p>You can now log in to the system using your email address. We use secure OTP (One-Time Password) authentication, so you'll receive a code via email each time you log in.</p>
               <p><strong>Your login email:</strong> ${to}</p>
               <p>To get started, visit the login page and enter your email address to receive an OTP code.</p>
-              <a href="${process.env.CORS_ORIGIN || "http://localhost:4200"}" class="button">Go to Login</a>
+              <a href="${process.env.CORS_ORIGIN || "http://scan4earn.com"}" class="button">Go to Login</a>
             </div>
             <div class="footer">
               <p>If you have any questions, please contact your system administrator.</p>
@@ -196,7 +196,7 @@ const sendWelcomeEmail = async (to, companyName) => {
  */
 const sendTenantAdminWelcomeEmail = async (email, fullName, tenant) => {
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-  const baseDomain = process.env.DOMAIN_BASE || "localhost";
+  const baseDomain = process.env.DOMAIN_BASE || "scan4earn.com";
   const port = process.env.NODE_ENV === "production" ? "" : ":4200";
   const loginUrl = `${protocol}://${tenant.subdomain}.${baseDomain}${port}`;
   const subject = `Welcome to Scan4Earn - You're now a Tenant Admin for ${tenant.name}`;

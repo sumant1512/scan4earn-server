@@ -7,7 +7,7 @@ const db = require('../config/database');
 const subdomainMiddleware = async (req, res, next) => {
   try {
     const hostname = req.hostname;
-    const baseDomain = process.env.DOMAIN_BASE || 'localhost';
+    const baseDomain = process.env.DOMAIN_BASE || 'scan4earn.com';
     
     // Skip subdomain resolution for super admin routes (always on root domain)
     if (req.path.startsWith('/api/super-admin')) {

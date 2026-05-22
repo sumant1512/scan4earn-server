@@ -3,21 +3,39 @@
  */
 const { Pool } = require('pg');
 
+// ============================================
+// Database Config Debug
+// ============================================
+const dbConfig = {
+  host: process.env.DB_HOST?.trim(),
+  port: Number(process.env.DB_PORT),
+  database: process.env.DB_NAME?.trim(),
+  user: process.env.DB_USER?.trim(),
+  passwordExists: !!process.env.DB_PASSWORD
+};
+
 // Track database connection status
 let dbConnected = false;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_INTERVAL = 5000; // 5 seconds
 
+// ============================================
+// PostgreSQL Pool
+// ============================================
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  host: process.env.DB_HOST?.trim(),
+  port: Number(process.env.DB_PORT),
+  database: process.env.DB_NAME?.trim(),
+  user: process.env.DB_USER?.trim(),
+  password: process.env.DB_PASSWORD?.trim(),
+  ssl: false, // IMPORTANT FOR EXTERNAL POSTGRES
+  max: 5, // Smaller pool for Cloud Run debugging
+
+  // Faster timeout debugging
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 5000,
+  allowExitOnIdle: true
 });
 
 // Test connection
@@ -30,7 +48,7 @@ pool.on('connect', () => {
 pool.on('error', (err) => {
   // Handle database errors gracefully instead of exiting
   console.error('⚠️  Database pool error (FATAL):', err?.code, err?.message);
-  
+
   if (err?.code === '57P01') {
     // Connection terminated by administrator
     console.error('❌ Database connection terminated by administrator');
@@ -41,18 +59,17 @@ pool.on('error', (err) => {
   } else {
     console.error('❌ Unexpected database error:', err?.message);
   }
-  
+
   dbConnected = false;
-  
-  // Auto-reconnect logic
+
   if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
     reconnectAttempts++;
     console.log(`\n🔄 Reconnection attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} in ${RECONNECT_INTERVAL / 1000}s...`);
-    
+
     setTimeout(() => {
       console.log('🔍 Retrying database connection...');
-      // Trigger a health check to attempt reconnection
-      checkDatabaseHealth().catch(e => {
+
+      checkDatabaseHealth().catch((e) => {
         console.error('Reconnect attempt failed:', e.message);
       });
     }, RECONNECT_INTERVAL);
@@ -76,7 +93,6 @@ async function checkDatabaseHealth() {
     const result = await pool.query('SELECT NOW() as current_time, current_database() as database');
     const responseTime = Date.now() - startTime;
 
-    // Mark as connected
     dbConnected = true;
     reconnectAttempts = 0;
 
@@ -86,42 +102,35 @@ async function checkDatabaseHealth() {
       database: result.rows[0].database,
       timestamp: result.rows[0].current_time,
       responseTime: `${responseTime}ms`,
-      config: {
-        host: process.env.DB_HOST || '82.112.231.204',
-        port: process.env.DB_PORT || 5432,
-        database: process.env.DB_NAME || 'scan4earn_db',
-        user: process.env.DB_USER || 'scan4earn'
-      }
+      config: dbConfig
     };
   } catch (error) {
     const responseTime = Date.now() - startTime;
 
-    // Handle specific error cases
-    let errorMessage = error.message;
-    if (error.code === '57P01') {
-      errorMessage = 'Database connection terminated by administrator';
-    } else if (error.code === 'ECONNREFUSED') {
-      errorMessage = 'Cannot connect to database (connection refused)';
-    }
+    console.error('\n❌ DATABASE HEALTH CHECK FAILED');
+
+    console.error({
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
 
     dbConnected = false;
 
     return {
       success: false,
       status: 'unhealthy',
-      error: errorMessage,
+      error: error.message,
       code: error.code,
       responseTime: `${responseTime}ms`,
-      config: {
-        host: process.env.DB_HOST || '82.112.231.204',
-        port: process.env.DB_PORT || 5432,
-        database: process.env.DB_NAME || 'scan4earn_db',
-        user: process.env.DB_USER || 'scan4earn'
-      }
+      config: dbConfig
     };
   }
 }
 
+// ============================================
+// Exports
+// ============================================
 module.exports = {
   query: (text, params) => pool.query(text, params),
   getClient: () => pool.connect(),

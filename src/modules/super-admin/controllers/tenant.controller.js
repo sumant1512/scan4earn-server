@@ -111,7 +111,7 @@ class TenantController {
       .catch(err => console.error('Welcome email failed:', err));
 
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const baseDomain = process.env.DOMAIN_BASE || 'localhost';
+    const baseDomain = process.env.DOMAIN_BASE || 'scan4earn.com';
     const port = process.env.NODE_ENV === 'production' ? '' : ':4200';
     const subdomainUrl = `${protocol}://${slug}.${baseDomain}${port}`;
 
