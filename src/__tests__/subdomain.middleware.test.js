@@ -1,7 +1,7 @@
 /**
  * Unit Tests for Subdomain Middleware
  */
-const subdomainMiddleware = require('../../src/middleware/subdomain.middleware');
+const { subdomainMiddleware } = require('../../src/middleware/subdomain.middleware');
 const db = require('../../src/config/database');
 
 // Mock database

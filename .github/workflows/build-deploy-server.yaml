@@ -111,9 +111,6 @@ jobs:
           output_path.write_text(yaml.safe_dump(rendered, sort_keys=False), encoding="utf-8")
           print(f"Rendered manifest written to {output_path}")
           PY
-      - name: Deploy to Cloud Run
-        run: |
-           cat cloudrun-config/rendered-cloudrun.yaml 
            
       - name: Deploy to Cloud Run
         run: |
