@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const SlugGenerator = require('./../services/slug-generator.service');
 
 /**
  * Middleware to detect subdomain and resolve tenant context
@@ -18,8 +19,8 @@ const subdomainMiddleware = async (req, res, next) => {
     // Extract subdomain from hostname
     const subdomain = extractSubdomain(hostname, baseDomain);
     
-    // Root domain (no subdomain)
-    if (!subdomain) {
+    // Root domain (no subdomain) or reserved subdomain (e.g. "api", "www", "admin")
+    if (!subdomain || SlugGenerator.isReserved(subdomain)) {
       req.isRootDomain = true;
       return next();
     }
