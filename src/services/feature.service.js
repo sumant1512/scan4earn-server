@@ -65,10 +65,18 @@ async function createFeature(data, actorId, req = null) {
 
     // Insert feature
     const result = await client.query(
-      `INSERT INTO features (code, name, description, default_enabled, parent_id, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO features (code, name, description, is_active, default_enabled, parent_id, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [data.code, data.name, data.description || null, data.default_enabled || false, data.parent_id || null, actorId]
+      [
+        data.code, 
+        data.name, 
+        data.description || null, 
+        data.is_active !== undefined ? data.is_active : true,
+        data.default_enabled || false, 
+        data.parent_id || null, 
+        actorId
+      ]
     );
 
     const feature = result.rows[0];
@@ -434,7 +442,17 @@ async function getTenantFeatures(tenantId, userRole = null) {
     // Tenant-admin sees only assigned features
     query = `
       SELECT
-         f.*,
+         tf.id,
+         tf.tenant_id,
+         f.id as feature_id,
+         f.code,
+         f.name,
+         f.description,
+         f.is_active,
+         f.default_enabled,
+         f.parent_id,
+         f.created_at,
+         f.updated_at,
          tf.enabled as enabled_for_tenant,
          tf.enabled_at,
          tf.enabled_by
@@ -447,7 +465,17 @@ async function getTenantFeatures(tenantId, userRole = null) {
     // Super-admin sees all features with their status
     query = `
       SELECT
-         f.*,
+         tf.id,
+         tf.tenant_id,
+         f.id as feature_id,
+         f.code,
+         f.name,
+         f.description,
+         f.is_active,
+         f.default_enabled,
+         f.parent_id,
+         f.created_at,
+         f.updated_at,
          COALESCE(tf.enabled, f.default_enabled) as enabled_for_tenant,
          tf.enabled_at,
          tf.enabled_by
