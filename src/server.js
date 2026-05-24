@@ -93,7 +93,8 @@ const corsOptions = {
       callback(new Error(`Not allowed by CORS: ${origin}`));
     }
   },
-  credentials: true
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug']
 };
 
 app.use(cors(corsOptions));

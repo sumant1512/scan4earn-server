@@ -1,46 +1,41 @@
 const db = require('../config/database');
-const SlugGenerator = require('./../services/slug-generator.service');
 
 /**
- * Middleware to detect subdomain and resolve tenant context
- * This enables multi-tenant subdomain routing (e.g., acme-corp.scan4earn.com)
+ * Middleware to detect tenant and resolve tenant context.
+ * Tenant slug must be provided via the X-Tenant-Slug header on every request to api.scan4earn.com.
  */
 const subdomainMiddleware = async (req, res, next) => {
   try {
-    const hostname = req.hostname;
-    const baseDomain = process.env.DOMAIN_BASE || 'scan4earn.com';
-    
-    // Skip subdomain resolution for super admin routes (always on root domain)
+    // Skip tenant resolution for super admin routes (always on root domain)
     if (req.path.startsWith('/api/super-admin')) {
       req.isRootDomain = true;
       return next();
     }
-    
-    // Extract subdomain from hostname
-    const subdomain = extractSubdomain(hostname, baseDomain);
-    
-    // Root domain (no subdomain) or reserved subdomain (e.g. "api", "www", "admin")
-    if (!subdomain || SlugGenerator.isReserved(subdomain)) {
+
+    // Tenant slug must be provided via X-Tenant-Slug header.
+    const subdomain = req.headers['x-tenant-slug'];
+
+    if (!subdomain) {
       req.isRootDomain = true;
       return next();
     }
-    
-    // Resolve tenant from subdomain (database lookup)
+
+    // Resolve tenant from slug (database lookup)
     const result = await db.query(
       'SELECT id, tenant_name, subdomain_slug, is_active FROM tenants WHERE subdomain_slug = $1',
       [subdomain]
     );
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({
         error: 'Tenant not found',
-        message: `No tenant found for subdomain: ${subdomain}`,
+        message: `No tenant found for slug: ${subdomain}`,
         subdomain
       });
     }
-    
+
     const tenant = result.rows[0];
-    
+
     // Check if tenant is active
     if (!tenant.is_active) {
       return res.status(403).json({
@@ -49,17 +44,17 @@ const subdomainMiddleware = async (req, res, next) => {
         subdomain
       });
     }
-    
+
     // Attach tenant context to request for downstream use
     req.tenant = tenant;
     req.subdomain = subdomain;
-    
+
     next();
   } catch (error) {
     console.error('Subdomain middleware error:', error);
-    res.status(500).json({ 
-      error: 'Failed to resolve subdomain',
-      message: 'An error occurred while processing the subdomain'
+    res.status(500).json({
+      error: 'Failed to resolve tenant',
+      message: 'An error occurred while processing the tenant context'
     });
   }
 };
