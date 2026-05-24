@@ -1,7 +1,7 @@
 /**
  * Tenant Context Middleware
- * Extracts and validates tenant context from subdomain or user context
- * Enforces tenant isolation for multi-tenant architecture
+ * Validates tenant context using the slug already resolved by subdomainMiddleware
+ * (from X-Tenant-Slug header or hostname). Enforces tenant isolation.
  */
 
 const tenantContextMiddleware = (req, res, next) => {
@@ -12,22 +12,11 @@ const tenantContextMiddleware = (req, res, next) => {
   }
 
   let tenantId = null;
-  let isRootDomain = false;
 
-  // Extract subdomain from request
-  const host = req.get('host') || '';
-  const hostParts = host.split('.');
-  let subdomain = null;
-
-  // Check if subdomain exists (e.g., acme.scan4earn.com -> subdomain = 'acme')
-  if (hostParts.length >= 3) {
-    subdomain = hostParts[0];
-  }
-
-  // Check if root domain (for super admin)
-  if (!subdomain || subdomain === 'admin' || subdomain === 'www' || subdomain === 'localhost') {
-    isRootDomain = true;
-  }
+  // Use the slug already resolved by subdomainMiddleware (from header or hostname).
+  // req.subdomain is null when no tenant was resolved (root domain / super admin path).
+  const resolvedSlug = req.subdomain || null;
+  const isRootDomain = req.isRootDomain || !resolvedSlug;
 
   if (user.role === 'SUPER_ADMIN') {
     // Super admin can:
@@ -45,13 +34,13 @@ const tenantContextMiddleware = (req, res, next) => {
       });
     }
 
-    // SECURITY: Validate subdomain matches user's tenant (if subdomain exists)
-    if (subdomain && !isRootDomain && user.tenant) {
+    // SECURITY: Validate the resolved tenant slug matches the user's own tenant
+    if (resolvedSlug && user.tenant) {
       const expectedSubdomain = user.tenant.subdomain_slug;
-      if (subdomain !== expectedSubdomain) {
-        console.warn(`Subdomain mismatch: ${subdomain} !== ${expectedSubdomain} for user ${user.id}`);
+      if (resolvedSlug !== expectedSubdomain) {
+        console.warn(`Tenant slug mismatch: ${resolvedSlug} !== ${expectedSubdomain} for user ${user.id}`);
         return res.status(403).json({
-          error: 'Subdomain mismatch. Access denied.'
+          error: 'Tenant mismatch. Access denied.'
         });
       }
     }
@@ -70,7 +59,7 @@ const tenantContextMiddleware = (req, res, next) => {
     tenantId,
     isRootDomain,
     isSuperAdmin: user.role === 'SUPER_ADMIN',
-    subdomain: subdomain || null,
+    subdomain: resolvedSlug,
     userId: user.id,
     userRole: user.role
   };
