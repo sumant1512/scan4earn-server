@@ -24,14 +24,14 @@ const {
  * Requires: SUPER_ADMIN role
  */
 const createFeature = asyncHandler(async (req, res) => {
-  const { code, name, description, default_enabled } = req.body;
+  const { code, name, description, is_active, default_enabled, parent_id } = req.body;
 
   // Validation
   validateRequiredFields(req.body, ['code', 'name']);
 
   try {
     const feature = await featureService.createFeature(
-      { code, name, description, default_enabled },
+      { code, name, description, is_active, default_enabled, parent_id },
       req.user.id,
       req
     );
@@ -85,12 +85,12 @@ const getFeature = asyncHandler(async (req, res) => {
  */
 const updateFeature = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, description, is_active, default_enabled } = req.body;
+  const { name, description, is_active, default_enabled, parent_id } = req.body;
 
   try {
     const feature = await featureService.updateFeature(
       id,
-      { name, description, is_active, default_enabled },
+      { name, description, is_active, default_enabled, parent_id },
       req.user.id,
       req
     );
