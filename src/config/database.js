@@ -29,15 +29,39 @@ const pool = new Pool({
   database: process.env.DB_NAME?.trim(),
   user: process.env.DB_USER?.trim(),
   password: process.env.DB_PASSWORD?.trim(),
-  ssl: false, // IMPORTANT FOR EXTERNAL POSTGRES
+  ssl: {
+    rejectUnauthorized: false
+  }, // IMPORTANT FOR EXTERNAL POSTGRES
   max: 5, // Smaller pool for Cloud Run debugging
 
   // Faster timeout debugging
   idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 5000,
-  allowExitOnIdle: true
+  connectionTimeoutMillis: 30000
 });
 
+(async () => {
+  console.log('STARTING DB TEST');
+
+  try {
+    const client = await pool.connect();
+    console.log('TCP CONNECTION SUCCESS');
+    const result = await client.query('SELECT NOW()');
+    console.log('QUERY SUCCESS');
+    console.log(result.rows);
+    client.release();
+  } catch (err) {
+    console.error('FULL DB ERROR');
+    console.error({
+      message: err.message,
+      code: err.code,
+      errno: err.errno,
+      syscall: err.syscall,
+      address: err.address,
+      port: err.port,
+      stack: err.stack
+    });
+  }
+})();
 // Test connection
 pool.on('connect', () => {
   console.log('📦 Database pool connection established');
