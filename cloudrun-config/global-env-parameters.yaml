@@ -33,7 +33,7 @@ ENABLE_SUBDOMAIN_ROUTING: true
 RESERVED_SUBDOMAINS: "www,api,admin,app,mail,ftp,smtp,pop,imap,localhost,staging,dev,test,demo,docs,cdn,static,assets,blog,shop,store"
 
 # CORS Configuration
-CORS_ORIGIN: "http://localhost:4200,http://*.localhost:4200"
+CORS_ORIGIN: "http://localhost:4200,http://*.localhost:4200,http://localhost:62373"
 
 # Rate Limiting
 RATE_LIMIT_WINDOW_MS: 900000

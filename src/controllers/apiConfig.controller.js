@@ -162,7 +162,7 @@ exports.updateApiConfig = asyncHandler(async (req, res) => {
  */
 exports.regenerateMobileKey = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const tenantId = req.user.tenantId;
+  const tenantId = req.user.tenant_id;
 
   // Check if app exists
   const appCheck = await db.query(
@@ -277,7 +277,7 @@ exports.enableMobileApi = asyncHandler(async (req, res) => {
  */
 exports.enableEcommerceApi = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const tenantId = req.user.tenantId;
+  const tenantId = req.user.tenant_id;
 
   // Check if app exists
   const appCheck = await db.query(

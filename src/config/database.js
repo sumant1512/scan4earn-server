@@ -29,9 +29,7 @@ const pool = new Pool({
   database: process.env.DB_NAME?.trim(),
   user: process.env.DB_USER?.trim(),
   password: process.env.DB_PASSWORD?.trim(),
-  ssl: {
-    rejectUnauthorized: false
-  }, // IMPORTANT FOR EXTERNAL POSTGRES
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   max: 5, // Smaller pool for Cloud Run debugging
 
   // Faster timeout debugging

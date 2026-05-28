@@ -58,7 +58,16 @@ exports.getProducts = asyncHandler(async (req, res) => {
         json_object_agg(pav.attribute_key, pav.attribute_value)
         FILTER (WHERE pav.attribute_key IS NOT NULL),
         '{}'::json
-      ) as attributes
+      ) as attributes,
+      COALESCE(
+        (
+          SELECT json_agg(json_build_object('id', t.id, 'name', t.name, 'icon', t.icon))
+          FROM tags t
+          JOIN product_tags pt_tags ON pt_tags.tag_id = t.id
+          WHERE pt_tags.product_id = p.id
+        ),
+        '[]'::json
+      ) as tags
     FROM products p
     LEFT JOIN product_templates pt ON p.template_id = pt.id
     LEFT JOIN product_attribute_values pav ON p.id = pav.product_id
@@ -95,7 +104,7 @@ exports.getProducts = asyncHandler(async (req, res) => {
   }
 
   query += `
-    GROUP BY p.id, pt.id, pt.template_name
+    GROUP BY p.id, p.product_name, p.product_sku, p.description, p.price, p.currency, p.image_url, p.is_active, p.created_at, p.updated_at, pt.id, pt.template_name
     ORDER BY p.updated_at DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
   `;
@@ -174,12 +183,21 @@ exports.getProduct = asyncHandler(async (req, res) => {
         json_object_agg(pav.attribute_key, pav.attribute_value)
         FILTER (WHERE pav.attribute_key IS NOT NULL),
         '{}'::json
-      ) as attributes
+      ) as attributes,
+      COALESCE(
+        (
+          SELECT json_agg(json_build_object('id', t.id, 'name', t.name, 'icon', t.icon))
+          FROM tags t
+          JOIN product_tags pt_tags ON pt_tags.tag_id = t.id
+          WHERE pt_tags.product_id = p.id
+        ),
+        '[]'::json
+      ) as tags
     FROM products p
     LEFT JOIN product_templates pt ON p.template_id = pt.id
     LEFT JOIN product_attribute_values pav ON p.id = pav.product_id
     WHERE p.id = $1 AND p.tenant_id = $2 AND p.verification_app_id = $3
-    GROUP BY p.id, pt.id, pt.template_name
+    GROUP BY p.id, p.product_name, p.product_sku, p.description, p.price, p.currency, p.image_url, p.is_active, p.created_at, p.updated_at, pt.id, pt.template_name
   `, [id, tenantId, verificationAppId]);
 
   if (result.rows.length === 0) {
@@ -501,6 +519,857 @@ exports.getTemplates = asyncHandler(async (req, res) => {
       templates: result.rows
     }
   });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CATEGORIES
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/ecommerce/v1/categories
+ * List all active categories for the authenticated tenant / app.
+ * Includes tenant-wide categories (verification_app_id IS NULL) plus app-specific ones.
+ */
+exports.getCategories = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+
+  const result = await db.query(`
+    SELECT
+      c.id,
+      c.name,
+      c.description,
+      c.icon,
+      COUNT(pc.product_id) FILTER (
+        WHERE p.is_active = true
+      ) AS product_count
+    FROM categories c
+    LEFT JOIN product_categories pc ON pc.category_id = c.id
+    LEFT JOIN products p ON p.id = pc.product_id
+      AND p.tenant_id = $1
+      AND (p.verification_app_id = $2 OR p.verification_app_id IS NULL)
+    WHERE c.tenant_id = $1
+      AND (c.verification_app_id = $2 OR c.verification_app_id IS NULL)
+      AND c.is_active = true
+    GROUP BY c.id, c.name, c.description, c.icon
+    ORDER BY c.name ASC
+  `, [tenantId, verificationAppId]);
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, {
+    data: { categories: result.rows }
+  });
+});
+
+/**
+ * GET /api/ecommerce/v1/categories/:id/products
+ * Paginated products list for a specific category.
+ */
+exports.getCategoryProducts = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { id } = req.params;
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+  const offset = (page - 1) * limit;
+
+  // Validate category belongs to this tenant/app (including tenant-wide)
+  const categoryCheck = await db.query(`
+    SELECT id FROM categories
+    WHERE id = $1
+      AND tenant_id = $2
+      AND (verification_app_id = $3 OR verification_app_id IS NULL)
+      AND is_active = true
+  `, [id, tenantId, verificationAppId]);
+
+  if (categoryCheck.rows.length === 0) {
+    await logApiUsage(verificationAppId, 'ecommerce', req, 404);
+    throw new NotFoundError('Category');
+  }
+
+  const [productsResult, countResult] = await Promise.all([
+    db.query(`
+      SELECT
+        p.id,
+        p.product_name,
+        p.product_sku,
+        p.price,
+        p.currency,
+        p.image_url,
+        p.stock_status,
+        p.attributes
+      FROM products p
+      JOIN product_categories pc ON pc.product_id = p.id
+      WHERE pc.category_id = $1
+        AND p.tenant_id = $2
+        AND (p.verification_app_id = $3 OR p.verification_app_id IS NULL)
+        AND p.is_active = true
+      ORDER BY p.product_name ASC
+      LIMIT $4 OFFSET $5
+    `, [id, tenantId, verificationAppId, limit, offset]),
+
+    db.query(`
+      SELECT COUNT(*) FROM products p
+      JOIN product_categories pc ON pc.product_id = p.id
+      WHERE pc.category_id = $1
+        AND p.tenant_id = $2
+        AND (p.verification_app_id = $3 OR p.verification_app_id IS NULL)
+        AND p.is_active = true
+    `, [id, tenantId, verificationAppId])
+  ]);
+
+  const total = parseInt(countResult.rows[0].count);
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, {
+    data: {
+      products: productsResult.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INVENTORY
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/ecommerce/v1/products/:id/stock
+ * Real-time stock status for a single product.
+ */
+exports.getProductStock = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { id } = req.params;
+
+  const result = await db.query(`
+    SELECT
+      id,
+      stock_quantity,
+      stock_status,
+      low_stock_threshold,
+      track_inventory
+    FROM products
+    WHERE id = $1
+      AND tenant_id = $2
+      AND (verification_app_id = $3 OR verification_app_id IS NULL)
+      AND is_active = true
+  `, [id, tenantId, verificationAppId]);
+
+  if (result.rows.length === 0) {
+    await logApiUsage(verificationAppId, 'ecommerce', req, 404);
+    throw new NotFoundError('Product');
+  }
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, { data: { stock: result.rows[0] } });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CART HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function getCartWithItems(tenantId, verificationAppId, customerRef) {
+  const cartResult = await db.query(`
+    SELECT id FROM ecommerce_carts
+    WHERE tenant_id = $1 AND verification_app_id = $2 AND customer_ref = $3
+  `, [tenantId, verificationAppId, customerRef]);
+
+  if (cartResult.rows.length === 0) {
+    return { items: [], subtotal: 0 };
+  }
+
+  const cartId = cartResult.rows[0].id;
+
+  const itemsResult = await db.query(`
+    SELECT
+      ci.id,
+      ci.product_id,
+      p.product_name,
+      p.product_sku,
+      p.image_url,
+      p.stock_status,
+      ci.quantity,
+      p.price,
+      p.currency,
+      (ci.quantity * p.price) AS line_total
+    FROM ecommerce_cart_items ci
+    JOIN products p ON p.id = ci.product_id
+    WHERE ci.cart_id = $1
+    ORDER BY ci.created_at ASC
+  `, [cartId]);
+
+  const items = itemsResult.rows;
+  const subtotal = items.reduce((sum, item) => sum + parseFloat(item.line_total || 0), 0);
+
+  return { cartId, items, subtotal: parseFloat(subtotal.toFixed(2)) };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CART
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/ecommerce/v1/cart
+ * Current cart with live prices and computed totals.
+ */
+exports.getCart = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { customerRef } = req;
+
+  const cart = await getCartWithItems(tenantId, verificationAppId, customerRef);
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, { data: { cart } });
+});
+
+/**
+ * POST /api/ecommerce/v1/cart/items
+ * Add a product to cart (increments quantity if already present).
+ */
+exports.addCartItem = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { customerRef } = req;
+  const { product_id, quantity = 1 } = req.body;
+
+  if (!product_id) throw new ValidationError('product_id is required', 'missing_product_id');
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new ValidationError('quantity must be a positive integer', 'invalid_quantity');
+  }
+
+  // Validate product active + scoped to this tenant/app
+  const productResult = await db.query(`
+    SELECT id, track_inventory, stock_quantity, stock_status
+    FROM products
+    WHERE id = $1
+      AND tenant_id = $2
+      AND (verification_app_id = $3 OR verification_app_id IS NULL)
+      AND is_active = true
+  `, [product_id, tenantId, verificationAppId]);
+
+  if (productResult.rows.length === 0) {
+    throw new NotFoundError('Product');
+  }
+
+  const product = productResult.rows[0];
+
+  if (product.track_inventory && product.stock_quantity < quantity) {
+    throw new ValidationError(
+      `Insufficient stock. Available: ${product.stock_quantity}`,
+      'insufficient_stock'
+    );
+  }
+
+  await executeTransaction(db, async (client) => {
+    // Upsert cart
+    await client.query(`
+      INSERT INTO ecommerce_carts (tenant_id, verification_app_id, customer_ref)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (tenant_id, verification_app_id, customer_ref) DO UPDATE
+        SET updated_at = CURRENT_TIMESTAMP
+    `, [tenantId, verificationAppId, customerRef]);
+
+    const cartResult = await client.query(`
+      SELECT id FROM ecommerce_carts
+      WHERE tenant_id = $1 AND verification_app_id = $2 AND customer_ref = $3
+    `, [tenantId, verificationAppId, customerRef]);
+
+    const cartId = cartResult.rows[0].id;
+
+    // Upsert cart item — increment quantity on conflict
+    await client.query(`
+      INSERT INTO ecommerce_cart_items (cart_id, product_id, quantity)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (cart_id, product_id) DO UPDATE
+        SET quantity = ecommerce_cart_items.quantity + EXCLUDED.quantity,
+            updated_at = CURRENT_TIMESTAMP
+    `, [cartId, product_id, quantity]);
+
+    // Touch cart updated_at
+    await client.query(`
+      UPDATE ecommerce_carts SET updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+    `, [cartId]);
+  });
+
+  const cart = await getCartWithItems(tenantId, verificationAppId, customerRef);
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, { data: { cart } }, 'Item added to cart');
+});
+
+/**
+ * PUT /api/ecommerce/v1/cart/items/:productId
+ * Set quantity of a specific cart item (replace, not increment).
+ */
+exports.updateCartItem = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { customerRef } = req;
+  const { productId } = req.params;
+  const { quantity } = req.body;
+
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new ValidationError('quantity must be a positive integer', 'invalid_quantity');
+  }
+
+  const cartResult = await db.query(`
+    SELECT c.id FROM ecommerce_carts c
+    WHERE c.tenant_id = $1 AND c.verification_app_id = $2 AND c.customer_ref = $3
+  `, [tenantId, verificationAppId, customerRef]);
+
+  if (cartResult.rows.length === 0) {
+    throw new NotFoundError('Cart item');
+  }
+
+  const cartId = cartResult.rows[0].id;
+
+  const updateResult = await db.query(`
+    UPDATE ecommerce_cart_items
+    SET quantity = $1, updated_at = CURRENT_TIMESTAMP
+    WHERE cart_id = $2 AND product_id = $3
+    RETURNING id
+  `, [quantity, cartId, productId]);
+
+  if (updateResult.rows.length === 0) {
+    throw new NotFoundError('Cart item');
+  }
+
+  await db.query(`
+    UPDATE ecommerce_carts SET updated_at = CURRENT_TIMESTAMP WHERE id = $1
+  `, [cartId]);
+
+  const cart = await getCartWithItems(tenantId, verificationAppId, customerRef);
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, { data: { cart } });
+});
+
+/**
+ * DELETE /api/ecommerce/v1/cart/items/:productId
+ * Remove a single item from the cart.
+ */
+exports.removeCartItem = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { customerRef } = req;
+  const { productId } = req.params;
+
+  const cartResult = await db.query(`
+    SELECT id FROM ecommerce_carts
+    WHERE tenant_id = $1 AND verification_app_id = $2 AND customer_ref = $3
+  `, [tenantId, verificationAppId, customerRef]);
+
+  if (cartResult.rows.length === 0) {
+    throw new NotFoundError('Cart item');
+  }
+
+  const cartId = cartResult.rows[0].id;
+
+  const deleteResult = await db.query(`
+    DELETE FROM ecommerce_cart_items
+    WHERE cart_id = $1 AND product_id = $2
+    RETURNING id
+  `, [cartId, productId]);
+
+  if (deleteResult.rows.length === 0) {
+    throw new NotFoundError('Cart item');
+  }
+
+  await db.query(`
+    UPDATE ecommerce_carts SET updated_at = CURRENT_TIMESTAMP WHERE id = $1
+  `, [cartId]);
+
+  const cart = await getCartWithItems(tenantId, verificationAppId, customerRef);
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, { data: { cart } });
+});
+
+/**
+ * DELETE /api/ecommerce/v1/cart
+ * Clear all items from the customer's cart (idempotent).
+ */
+exports.clearCart = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { customerRef } = req;
+
+  const cartResult = await db.query(`
+    SELECT id FROM ecommerce_carts
+    WHERE tenant_id = $1 AND verification_app_id = $2 AND customer_ref = $3
+  `, [tenantId, verificationAppId, customerRef]);
+
+  if (cartResult.rows.length > 0) {
+    const cartId = cartResult.rows[0].id;
+    await db.query('DELETE FROM ecommerce_cart_items WHERE cart_id = $1', [cartId]);
+    await db.query(`
+      UPDATE ecommerce_carts SET updated_at = CURRENT_TIMESTAMP WHERE id = $1
+    `, [cartId]);
+  }
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, { data: { cart: { items: [], subtotal: 0 } } });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORDERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ALLOWED_TRANSITIONS = {
+  pending:    ['confirmed', 'cancelled'],
+  confirmed:  ['processing'],
+  processing: ['shipped'],
+  shipped:    ['delivered'],
+  delivered:  ['returned'],
+  returned:   ['refunded'],
+  cancelled:  ['refunded'],
+  refunded:   []
+};
+
+const VALID_STATUSES = new Set(Object.keys(ALLOWED_TRANSITIONS));
+
+async function generateOrderNumber(client, tenantId) {
+  // Generate order number without FOR UPDATE (aggregate functions don't work with FOR UPDATE)
+  // Use a simple counter approach based on existing order count
+  const result = await client.query(`
+    SELECT
+      TO_CHAR(CURRENT_DATE, 'YYYYMMDD') AS date_part,
+      COUNT(*) AS today_count
+    FROM ecommerce_orders
+    WHERE tenant_id = $1
+      AND placed_at::date = CURRENT_DATE
+  `, [tenantId]);
+
+  const { date_part, today_count } = result.rows[0] || { date_part: null, today_count: 0 };
+  const seq = parseInt(today_count) + 1;
+  return `ORD-${date_part}-${String(seq).padStart(5, '0')}`;
+}
+
+/**
+ * POST /api/ecommerce/v1/orders
+ * Place an order from cart or explicit items list.
+ */
+exports.placeOrder = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { customerRef } = req;
+  const {
+    from_cart,
+    items: explicitItems,
+    customer_name,
+    customer_email,
+    customer_phone,
+    tax_amount = 0,
+    currency,
+    shipping_address,
+    notes,
+    metadata
+  } = req.body;
+
+  const order = await executeTransaction(db, async (client) => {
+    let lineItems = [];
+
+    if (from_cart) {
+      // Resolve items from cart
+      const cartResult = await client.query(`
+        SELECT c.id FROM ecommerce_carts c
+        WHERE c.tenant_id = $1 AND c.verification_app_id = $2 AND c.customer_ref = $3
+      `, [tenantId, verificationAppId, customerRef]);
+
+      if (cartResult.rows.length === 0) {
+        throw new ValidationError('Cart is empty', 'empty_cart');
+      }
+
+      const cartId = cartResult.rows[0].id;
+
+      const cartItems = await client.query(`
+        SELECT ci.product_id, ci.quantity
+        FROM ecommerce_cart_items ci
+        WHERE ci.cart_id = $1
+      `, [cartId]);
+
+      if (cartItems.rows.length === 0) {
+        throw new ValidationError('Cart is empty', 'empty_cart');
+      }
+
+      lineItems = cartItems.rows;
+    } else {
+      if (!Array.isArray(explicitItems) || explicitItems.length === 0) {
+        throw new ValidationError('Either from_cart or items[] must be provided', 'missing_items');
+      }
+      lineItems = explicitItems.map(i => ({ product_id: i.product_id, quantity: i.quantity }));
+    }
+
+    // Fetch live prices + validate all products
+    const productIds = lineItems.map(i => i.product_id);
+    const productsResult = await client.query(`
+      SELECT id, product_name, product_sku, price, currency, attributes,
+             track_inventory, stock_quantity, is_active
+      FROM products
+      WHERE id = ANY($1)
+        AND tenant_id = $2
+        AND (verification_app_id = $3 OR verification_app_id IS NULL)
+    `, [productIds, tenantId, verificationAppId]);
+
+    const productMap = new Map(productsResult.rows.map(p => [p.id, p]));
+
+    const orderItems = [];
+    let subtotal = 0;
+
+    for (const item of lineItems) {
+      const product = productMap.get(item.product_id);
+      if (!product) throw new ValidationError(`Product ${item.product_id} not found`, 'product_not_found');
+      if (!product.is_active) throw new ValidationError(`Product ${item.product_id} is not active`, 'product_inactive');
+
+      if (product.track_inventory && product.stock_quantity < item.quantity) {
+        throw new ValidationError(
+          `Insufficient stock for product ${item.product_id}. Available: ${product.stock_quantity}`,
+          'insufficient_stock'
+        );
+      }
+
+      const unitPrice = parseFloat(product.price || 0);
+      const totalPrice = parseFloat((unitPrice * item.quantity).toFixed(2));
+      subtotal += totalPrice;
+
+      orderItems.push({
+        product_id: product.id,
+        product_sku: product.product_sku,
+        product_name: product.product_name,
+        quantity: item.quantity,
+        unit_price: unitPrice,
+        total_price: totalPrice,
+        attributes: product.attributes
+      });
+    }
+
+    subtotal = parseFloat(subtotal.toFixed(2));
+    const taxAmt = parseFloat(parseFloat(tax_amount).toFixed(2));
+    const totalAmount = parseFloat((subtotal + taxAmt).toFixed(2));
+    const orderCurrency = currency || productsResult.rows[0]?.currency || 'INR';
+
+    const orderNumber = await generateOrderNumber(client, tenantId);
+
+    const orderInsert = await client.query(`
+      INSERT INTO ecommerce_orders (
+        order_number, tenant_id, verification_app_id, customer_ref,
+        customer_name, customer_email, customer_phone,
+        status, subtotal, tax_amount, total_amount, currency,
+        shipping_address, notes, metadata
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,$11,$12,$13,$14)
+      RETURNING *
+    `, [
+      orderNumber, tenantId, verificationAppId, customerRef,
+      customer_name || null, customer_email || null, customer_phone || null,
+      subtotal, taxAmt, totalAmount, orderCurrency,
+      shipping_address ? JSON.stringify(shipping_address) : null,
+      notes || null,
+      metadata ? JSON.stringify(metadata) : null
+    ]);
+
+    const newOrder = orderInsert.rows[0];
+
+    for (const item of orderItems) {
+      await client.query(`
+        INSERT INTO ecommerce_order_items
+          (order_id, product_id, product_sku, product_name, quantity, unit_price, total_price, attributes)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `, [
+        newOrder.id, item.product_id, item.product_sku, item.product_name,
+        item.quantity, item.unit_price, item.total_price,
+        item.attributes ? JSON.stringify(item.attributes) : null
+      ]);
+    }
+
+    // Decrement stock for tracked products (atomic check + update)
+    for (const item of orderItems) {
+      const prod = productMap.get(item.product_id);
+      if (prod && prod.track_inventory) {
+        const updateStock = await client.query(`
+          UPDATE products
+          SET stock_quantity = stock_quantity - $1,
+              stock_status = CASE WHEN stock_quantity - $1 <= 0 THEN 'out_of_stock' ELSE stock_status END,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2 AND stock_quantity >= $1
+          RETURNING stock_quantity
+        `, [item.quantity, item.product_id]);
+
+        if (updateStock.rows.length === 0) {
+          throw new ValidationError(
+            `Insufficient stock for product ${item.product_id} during finalize.`,
+            'insufficient_stock'
+          );
+        }
+      }
+    }
+
+    // Clear cart if from_cart
+    if (from_cart) {
+      const cartResult = await client.query(`
+        SELECT id FROM ecommerce_carts
+        WHERE tenant_id = $1 AND verification_app_id = $2 AND customer_ref = $3
+      `, [tenantId, verificationAppId, customerRef]);
+
+      if (cartResult.rows.length > 0) {
+        await client.query('DELETE FROM ecommerce_cart_items WHERE cart_id = $1', [cartResult.rows[0].id]);
+        await client.query(`
+          UPDATE ecommerce_carts SET updated_at = CURRENT_TIMESTAMP WHERE id = $1
+        `, [cartResult.rows[0].id]);
+      }
+    }
+
+    return { ...newOrder, items: orderItems };
+  });
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 201);
+
+  return sendSuccess(res, { data: { order } }, 'Order placed successfully', 201);
+});
+
+/**
+ * GET /api/ecommerce/v1/orders
+ * List order history for a customer.
+ */
+exports.getOrders = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { customerRef } = req;
+  const { status } = req.query;
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+  const offset = (page - 1) * limit;
+
+  const params = [tenantId, verificationAppId, customerRef];
+  let whereClause = `tenant_id = $1 AND verification_app_id = $2 AND customer_ref = $3`;
+
+  if (status) {
+    if (!VALID_STATUSES.has(status)) {
+      throw new ValidationError(`Invalid status '${status}'`, 'invalid_status');
+    }
+    params.push(status);
+    whereClause += ` AND status = $${params.length}`;
+  }
+
+  const [ordersResult, countResult] = await Promise.all([
+    db.query(`
+      SELECT id, order_number, status, subtotal, tax_amount, total_amount,
+             currency, placed_at, updated_at
+      FROM ecommerce_orders
+      WHERE ${whereClause}
+      ORDER BY placed_at DESC
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+    `, [...params, limit, offset]),
+
+    db.query(`
+      SELECT COUNT(*) FROM ecommerce_orders WHERE ${whereClause}
+    `, params)
+  ]);
+
+  const total = parseInt(countResult.rows[0].count);
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, {
+    data: {
+      orders: ordersResult.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    }
+  });
+});
+
+/**
+ * GET /api/ecommerce/v1/orders/:id
+ * Single order with line items.
+ */
+exports.getOrder = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { customerRef } = req;
+  const { id } = req.params;
+
+  const orderResult = await db.query(`
+    SELECT * FROM ecommerce_orders
+    WHERE id = $1 AND tenant_id = $2 AND verification_app_id = $3 AND customer_ref = $4
+  `, [id, tenantId, verificationAppId, customerRef]);
+
+  if (orderResult.rows.length === 0) {
+    await logApiUsage(verificationAppId, 'ecommerce', req, 404);
+    throw new NotFoundError('Order');
+  }
+
+  const order = orderResult.rows[0];
+
+  const itemsResult = await db.query(`
+    SELECT product_id, product_sku, product_name, quantity, unit_price, total_price, attributes
+    FROM ecommerce_order_items
+    WHERE order_id = $1
+    ORDER BY id ASC
+  `, [id]);
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, { data: { order: { ...order, items: itemsResult.rows } } });
+});
+
+/**
+ * PATCH /api/ecommerce/v1/orders/:id/status
+ * Advance or transition order status following strict progression rules.
+ */
+exports.updateOrderStatus = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { customerRef } = req;
+  const { id } = req.params;
+  const { status: newStatus } = req.body;
+
+  if (!newStatus || !VALID_STATUSES.has(newStatus)) {
+    throw new ValidationError(
+      `Invalid status. Must be one of: ${[...VALID_STATUSES].join(', ')}`,
+      'invalid_status'
+    );
+  }
+
+  const orderResult = await db.query(`
+    SELECT id, status FROM ecommerce_orders
+    WHERE id = $1 AND tenant_id = $2 AND verification_app_id = $3 AND customer_ref = $4
+  `, [id, tenantId, verificationAppId, customerRef]);
+
+  if (orderResult.rows.length === 0) {
+    await logApiUsage(verificationAppId, 'ecommerce', req, 404);
+    throw new NotFoundError('Order');
+  }
+
+  const currentStatus = orderResult.rows[0].status;
+
+  if (currentStatus === 'refunded') {
+    throw new ValidationError('Order is in a terminal status and cannot be updated', 'terminal_status');
+  }
+
+  const allowed = ALLOWED_TRANSITIONS[currentStatus] || [];
+  if (!allowed.includes(newStatus)) {
+    throw new ValidationError(
+      `Cannot transition from '${currentStatus}' to '${newStatus}'. Allowed: ${allowed.join(', ') || 'none'}`,
+      'invalid_transition'
+    );
+  }
+
+  const updated = await db.query(`
+    UPDATE ecommerce_orders
+    SET status = $1, updated_at = CURRENT_TIMESTAMP
+    WHERE id = $2
+    RETURNING *
+  `, [newStatus, id]);
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, { data: { order: updated.rows[0] } }, 'Order status updated');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WISHLIST
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/ecommerce/v1/wishlist
+ * Return all saved products for a customer.
+ */
+exports.getWishlist = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { customerRef } = req;
+
+  const result = await db.query(`
+    SELECT
+      w.product_id,
+      p.product_name,
+      p.product_sku,
+      p.price,
+      p.currency,
+      p.image_url,
+      p.stock_status,
+      p.is_active,
+      w.added_at
+    FROM ecommerce_wishlists w
+    JOIN products p ON p.id = w.product_id
+    WHERE w.tenant_id = $1
+      AND w.verification_app_id = $2
+      AND w.customer_ref = $3
+    ORDER BY w.added_at DESC
+  `, [tenantId, verificationAppId, customerRef]);
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, { data: { items: result.rows } });
+});
+
+/**
+ * POST /api/ecommerce/v1/wishlist
+ * Add a product to the wishlist (idempotent — ON CONFLICT DO NOTHING).
+ */
+exports.addToWishlist = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { customerRef } = req;
+  const { product_id } = req.body;
+
+  if (!product_id) throw new ValidationError('product_id is required', 'missing_product_id');
+
+  // Validate product belongs to this tenant/app
+  const productResult = await db.query(`
+    SELECT id, product_name FROM products
+    WHERE id = $1
+      AND tenant_id = $2
+      AND (verification_app_id = $3 OR verification_app_id IS NULL)
+      AND is_active = true
+  `, [product_id, tenantId, verificationAppId]);
+
+  if (productResult.rows.length === 0) {
+    await logApiUsage(verificationAppId, 'ecommerce', req, 404);
+    throw new NotFoundError('Product');
+  }
+
+  const insertResult = await db.query(`
+    INSERT INTO ecommerce_wishlists (tenant_id, verification_app_id, customer_ref, product_id)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (tenant_id, verification_app_id, customer_ref, product_id) DO NOTHING
+    RETURNING added_at
+  `, [tenantId, verificationAppId, customerRef, product_id]);
+
+  const statusCode = insertResult.rows.length > 0 ? 201 : 200;
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, statusCode);
+
+  return sendSuccess(res, {
+    data: {
+      product_id,
+      product_name: productResult.rows[0].product_name,
+      added_at: insertResult.rows[0]?.added_at || null
+    }
+  }, 'Product added to wishlist', statusCode);
+});
+
+/**
+ * DELETE /api/ecommerce/v1/wishlist/:productId
+ * Remove a product from the wishlist (idempotent).
+ */
+exports.removeFromWishlist = asyncHandler(async (req, res) => {
+  const { verificationAppId, tenantId } = req.apiAuth;
+  const { customerRef } = req;
+  const { productId } = req.params;
+
+  await db.query(`
+    DELETE FROM ecommerce_wishlists
+    WHERE tenant_id = $1
+      AND verification_app_id = $2
+      AND customer_ref = $3
+      AND product_id = $4
+  `, [tenantId, verificationAppId, customerRef, productId]);
+
+  await logApiUsage(verificationAppId, 'ecommerce', req, 200);
+
+  return sendSuccess(res, null, 'Product removed from wishlist');
 });
 
 /**

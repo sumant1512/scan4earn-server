@@ -68,6 +68,7 @@ const corsOptions = {
       `http://localhost:4200`,
       `http://localhost:8081`,
       `http://localhost:8080`,
+      `http://localhost:62373`, // ✅ add this for local testing with dynamic ports
       `http://${baseDomain}`,
       `https://${baseDomain}`,
       'https://scan4earn.com',   // ✅ add this
