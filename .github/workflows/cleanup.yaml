@@ -7,8 +7,8 @@ on:
 
   workflow_dispatch:
 
-  schedule:
-    - cron: "0 */4 * * *"
+  # schedule:
+  #   - cron: "0 */4 * * *"
 
 env:
   PROJECT_ID: orbital-nirvana-492005-q3
