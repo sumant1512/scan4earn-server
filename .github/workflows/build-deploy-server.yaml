@@ -1,13 +1,19 @@
-name: Build and Deploy to Cloud Run ms-server
+name: Deploy Cloud Run Release
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to deploy (latest or v1.0.0)"
+        required: true
+        default: "latest"
+        type: string
 
 env:
   PROJECT_ID: orbital-nirvana-492005-q3
   GAR_LOCATION: us-east4
   REPOSITORY: mscan-server
-  SERVICE_NAME: mscan-server  #keep is same as in env file 
+  SERVICE_NAME: mscan-server
   REGION: us-east4
   IMAGE_NAME: mscan-server
 
@@ -20,8 +26,33 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout source
+      - name: Resolve Release Tag
+        id: release
+        env:
+          INPUT_TAG: ${{ github.event.inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$INPUT_TAG" = "latest" ]; then
+            TAG=$(gh release view --json tagName --jq '.tagName')
+            echo "Latest release found: $TAG"
+          else
+            TAG="$INPUT_TAG"
+            echo "Using release: $TAG"
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Validate Release Exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view ${{ steps.release.outputs.tag }}
+
+      - name: Checkout Release Source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -46,43 +77,38 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
           token_format: access_token
-      
-      - name: Debug WIF secrets
-        run: |
-          echo "Provider exists: ${{ secrets.WIF_PROVIDER != '' }}"
-          echo "Service account exists: ${{ secrets.WIF_SERVICE_ACCOUNT != '' }}"
 
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: Set up Docker auth for Artifact Registry
+      - name: Configure Docker Authentication
         uses: docker/login-action@v3
         with:
           registry: ${{ env.GAR_LOCATION }}-docker.pkg.dev
           username: oauth2accesstoken
           password: ${{ steps.auth.outputs.access_token }}
 
-      - name: Build and push image
+      - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:
-          context: 
-          file: ./Dockerfile  
+          context: .
+          file: ./Dockerfile
           push: true
-          tags: | 
-            ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
+          tags: |
+            ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ steps.release.outputs.tag }}
 
-      - name: Render Cloud Run manifest
+      - name: Render Cloud Run Manifest
         env:
-          SERVICE_IMAGE: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
+          SERVICE_IMAGE: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ steps.release.outputs.tag }}
           SERVICE_CONTAINER_NAME: nodejsapp
         run: |
           python - <<'PY'
           import os
           import re
-          from pathlib import Path
           import yaml
+          from pathlib import Path
 
           template_path = Path("cloudrun-config/cloudrun-config.yaml")
           output_path = Path("cloudrun-config/rendered-cloudrun.yaml")
@@ -90,37 +116,39 @@ jobs:
           placeholder_re = re.compile(r"\$\{([A-Z0-9_]+)\}")
 
           def render(obj):
-            if isinstance(obj, str):
-                def repl(match):
-                    key = match.group(1)
-                    if key not in os.environ:
-                        raise KeyError(f"Missing env var: {key}")
-                    return str(os.environ[key])
+              if isinstance(obj, str):
+                  def repl(match):
+                      key = match.group(1)
+                      return os.environ[key]
+                  return placeholder_re.sub(repl, obj)
 
-                return placeholder_re.sub(repl, obj)
+              if isinstance(obj, list):
+                  return [render(i) for i in obj]
 
-            if isinstance(obj, list):
-                return [render(item) for item in obj]
+              if isinstance(obj, dict):
+                  return {k: render(v) for k, v in obj.items()}
 
-            if isinstance(obj, dict):
-                return {k: render(v) for k, v in obj.items()}
+              return obj
 
-            return obj
-          template = yaml.safe_load(template_path.read_text(encoding="utf-8"))
+          template = yaml.safe_load(template_path.read_text())
           rendered = render(template)
-          output_path.write_text(yaml.safe_dump(rendered, sort_keys=False), encoding="utf-8")
-          print(f"Rendered manifest written to {output_path}")
+
+          output_path.write_text(
+              yaml.safe_dump(rendered, sort_keys=False)
+          )
+
+          print(f"Rendered manifest: {output_path}")
           PY
-           
+
       - name: Deploy to Cloud Run
         run: |
           gcloud run services replace cloudrun-config/rendered-cloudrun.yaml \
             --region "${REGION}" \
             --project "${PROJECT_ID}"
 
-      - name: Show service URL
+      - name: Show Service URL
         run: |
           gcloud run services describe "${SERVICE_NAME}" \
             --region "${REGION}" \
             --project "${PROJECT_ID}" \
-            --format='value(status.url)'
+            --format="value(status.url)"
