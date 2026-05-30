@@ -12,8 +12,8 @@ on:
 env:
   PROJECT_ID: orbital-nirvana-492005-q3
   GAR_LOCATION: us-east4
-  REPOSITORY: mscan-server
-  SERVICE_NAME: mscan-server
+  REPOSITORY: mscan-server-test-release
+  SERVICE_NAME: mscan-server-test-release
   REGION: us-east4
   IMAGE_NAME: mscan-server
 
