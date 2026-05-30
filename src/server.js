@@ -72,6 +72,10 @@ const corsOptions = {
       `http://${baseDomain}`,
       `https://${baseDomain}`,
       'https://scan4earn.com',   // ✅ add this
+      'https://sumukham.com',   // ✅ add this
+      'https://palspaint.com',   // ✅ add this
+      'http://www.sumukham.com', // ✅ add this
+      'http://www.palspaint.com', // ✅ add this
       'https://www.scan4earn.com' // ✅ optional but recommended
     ];
 
