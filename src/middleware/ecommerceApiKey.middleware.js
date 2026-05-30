@@ -6,6 +6,7 @@
  */
 
 const db = require('../config/database');
+const featureService = require('../services/feature.service');
 
 /**
  * Authenticate E-commerce API key from Authorization header
@@ -151,6 +152,60 @@ async function checkRateLimit(verificationAppId, apiType, limitPerMinute) {
   }
 }
 
+/**
+ * Gate a route behind a sub-feature flag using the ecommerce API key auth context.
+ * Reads tenant ID from req.apiAuth.tenantId (NOT req.user — there is no JWT on these routes).
+ */
+const requireEcommerceFeature = (featureCode) => async (req, res, next) => {
+  try {
+    const tenantId = req.apiAuth?.tenantId;
+    if (!tenantId) {
+      return res.status(401).json({
+        status: false,
+        error: 'unauthorized',
+        message: 'Tenant context required'
+      });
+    }
+
+    const isEnabled = await featureService.isFeatureEnabledForTenant(featureCode, tenantId);
+    if (!isEnabled) {
+      return res.status(403).json({
+        status: false,
+        error: 'forbidden',
+        message: `Feature '${featureCode}' is not enabled for this tenant`
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Feature flag check error:', error);
+    res.status(500).json({
+      status: false,
+      error: 'internal_error',
+      message: 'Feature check failed'
+    });
+  }
+};
+
+/**
+ * Require X-Customer-Ref header for customer-scoped endpoints (cart, orders, wishlist).
+ * Attaches the value to req.customerRef.
+ */
+const requireCustomerRef = (req, res, next) => {
+  const customerRef = req.headers['x-customer-ref'];
+  if (!customerRef || customerRef.trim() === '') {
+    return res.status(400).json({
+      status: false,
+      error: 'bad_request',
+      message: 'X-Customer-Ref header is required'
+    });
+  }
+  req.customerRef = customerRef.trim();
+  next();
+};
+
 module.exports = {
-  authenticateEcommerceApiKey
+  authenticateEcommerceApiKey,
+  requireEcommerceFeature,
+  requireCustomerRef
 };
