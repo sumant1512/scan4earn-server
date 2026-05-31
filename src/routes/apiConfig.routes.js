@@ -83,4 +83,11 @@ router.get(
   apiConfigController.getApiUsage
 );
 
+// GET /api/verification-apps/:id/mobile-api/key-status - Get mobile API key lifecycle status
+router.get(
+  '/:id/mobile-api/key-status',
+  authMiddleware.requirePermission('view_apps'),
+  apiConfigController.getMobileKeyStatus
+);
+
 module.exports = router;

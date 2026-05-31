@@ -8,8 +8,10 @@
 const db = require('../config/database');
 
 /**
- * Authenticate Mobile API key from Authorization header
- * Expected format: Authorization: Bearer mobile_xxxxx
+ * Authenticate Mobile API using app ID + key (two-factor)
+ * Expected headers:
+ *   - Authorization: Bearer mobile_xxxxx
+ *   - X-App-Id: <verification_app_id UUID>
  */
 const authenticateMobileApiKey = async (req, res, next) => {
   try {
@@ -34,7 +36,28 @@ const authenticateMobileApiKey = async (req, res, next) => {
       });
     }
 
-    // Lookup API key in database
+    // Extract verification app ID from X-App-Id header
+    const appId = req.get('X-App-Id');
+
+    if (!appId) {
+      return res.status(400).json({
+        status: false,
+        error: 'bad_request',
+        message: 'Missing X-App-Id header'
+      });
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(appId)) {
+      return res.status(400).json({
+        status: false,
+        error: 'bad_request',
+        message: 'Invalid X-App-Id format. Expected UUID.'
+      });
+    }
+
+    // Lookup API key + app ID in database (both must match)
     const result = await db.query(`
       SELECT
         va.id as verification_app_id,
@@ -43,18 +66,21 @@ const authenticateMobileApiKey = async (req, res, next) => {
         va.tenant_id,
         va.mobile_api_enabled,
         va.api_rate_limits,
+        va.mobile_api_key_expires_at,
+        va.mobile_api_key_version,
+        va.mobile_api_key_rotation_allowed_until,
         t.tenant_name,
         t.subdomain_slug
       FROM verification_apps va
       JOIN tenants t ON va.tenant_id = t.id
-      WHERE va.mobile_api_key = $1 AND va.is_active = true
-    `, [apiKey]);
+      WHERE va.id = $1 AND va.mobile_api_key = $2 AND va.is_active = true
+    `, [appId, apiKey]);
 
     if (result.rows.length === 0) {
       return res.status(401).json({
         status: false,
         error: 'unauthorized',
-        message: 'Invalid Mobile API key'
+        message: 'Invalid credentials'
       });
     }
 
@@ -67,6 +93,21 @@ const authenticateMobileApiKey = async (req, res, next) => {
         error: 'forbidden',
         message: 'Mobile API is not enabled for this verification app'
       });
+    }
+
+    // Check if API key has expired
+    if (app.mobile_api_key_expires_at && new Date(app.mobile_api_key_expires_at) < new Date()) {
+      return res.status(401).json({
+        status: false,
+        error: 'key_expired',
+        message: 'Mobile API key has expired. Please regenerate your key.',
+        expired_at: app.mobile_api_key_expires_at
+      });
+    }
+
+    // Log if key is in rotation grace period (still works, but notify client)
+    if (app.mobile_api_key_rotation_allowed_until && new Date(app.mobile_api_key_rotation_allowed_until) > new Date()) {
+      console.warn(`⚠️  Key rotation grace period active for app ${app.verification_app_id}. Old key still accepted until ${app.mobile_api_key_rotation_allowed_until}`);
     }
 
     // Check rate limit (basic implementation - can be enhanced with Redis)

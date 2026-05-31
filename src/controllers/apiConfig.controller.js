@@ -17,6 +17,12 @@ const {
 const {
   sendSuccess
 } = require('../modules/common/utils/response.util');
+const {
+  logKeyRotation,
+  getKeyRotationHistory,
+  getDefaultKeyExpirationDate,
+  getDefaultRotationGracePeriod
+} = require('../utils/apiKeyHelper');
 
 /**
  * Generate a secure API key
@@ -158,36 +164,73 @@ exports.updateApiConfig = asyncHandler(async (req, res) => {
 
 /**
  * POST /api/verification-apps/:id/regenerate-mobile-key
- * Regenerate Mobile API key
+ * Regenerate Mobile API key with rotation grace period
  */
 exports.regenerateMobileKey = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const tenantId = req.user.tenant_id;
+  const { grace_period_days = 14 } = req.body; // Allow custom grace period (default 14 days)
 
-  // Check if app exists
-  const appCheck = await db.query(
-    'SELECT id, app_name FROM verification_apps WHERE id = $1 AND tenant_id = $2',
-    [id, tenantId]
-  );
+  // Check if app exists and get current key info
+  const appCheck = await db.query(`
+    SELECT id, app_name, mobile_api_key, mobile_api_key_version
+    FROM verification_apps
+    WHERE id = $1 AND tenant_id = $2
+  `, [id, tenantId]);
 
   if (appCheck.rows.length === 0) {
     throw new NotFoundError('Verification app');
   }
 
+  const app = appCheck.rows[0];
+  const oldKey = app.mobile_api_key;
+  const oldKeyVersion = app.mobile_api_key_version || 0;
+  const newKeyVersion = oldKeyVersion + 1;
+
   // Generate new API key
   const newApiKey = generateApiKey('mobile');
+  const keyExpiresAt = getDefaultKeyExpirationDate();
 
-  // Update database
+  // Calculate grace period (when old key stops working)
+  const gracePeriodEnd = new Date();
+  gracePeriodEnd.setDate(gracePeriodEnd.getDate() + grace_period_days);
+
+  // Update database with new key and version, keep old key until grace period ends
   const result = await db.query(`
     UPDATE verification_apps
-    SET mobile_api_key = $1, updated_at = CURRENT_TIMESTAMP
+    SET mobile_api_key = $1,
+        mobile_api_key_created_at = CURRENT_TIMESTAMP,
+        mobile_api_key_expires_at = $4,
+        mobile_api_key_version = $5,
+        mobile_api_key_rotation_allowed_until = $6,
+        updated_at = CURRENT_TIMESTAMP
     WHERE id = $2 AND tenant_id = $3
-    RETURNING id, app_name, mobile_api_enabled
-  `, [newApiKey, id, tenantId]);
+    RETURNING id, app_name, mobile_api_enabled, mobile_api_key_expires_at, mobile_api_key_version
+  `, [newApiKey, id, tenantId, keyExpiresAt, newKeyVersion, gracePeriodEnd]);
+
+  // Log the key rotation in audit trail
+  await logKeyRotation({
+    verificationAppId: id,
+    tenantId: tenantId,
+    apiType: 'mobile',
+    previousKey: oldKey,
+    previousKeyVersion: oldKeyVersion,
+    newKeyVersion: newKeyVersion,
+    newKeyExpiresAt: keyExpiresAt,
+    initiatedByUserId: req.user.id,
+    initiatedByRole: req.user.role,
+    rotationReason: 'manual',
+    notes: `Manual key rotation by ${req.user.role}. Grace period: ${grace_period_days} days`
+  });
 
   return sendSuccess(res, {
+    app_id: result.rows[0].id,
     api_key: newApiKey,
-    warning: 'This is the only time you will see the full API key. Please save it securely.',
+    key_version: result.rows[0].mobile_api_key_version,
+    expires_at: result.rows[0].mobile_api_key_expires_at,
+    old_key_grace_period_until: gracePeriodEnd,
+    grace_period_days: grace_period_days,
+    warning: 'This is the only time you will see the full API key. Please save it securely. Both app_id and api_key are required for authentication. Old key will stop working in ' + grace_period_days + ' days.',
     app: result.rows[0]
   }, 'Mobile API key regenerated successfully');
 });
@@ -252,21 +295,43 @@ exports.enableMobileApi = asyncHandler(async (req, res) => {
 
   // Generate new API key
   const newApiKey = generateApiKey('mobile');
+  const keyExpiresAt = getDefaultKeyExpirationDate();
 
-  // Enable and set key
+  // Enable and set key with lifecycle management
   const result = await db.query(`
     UPDATE verification_apps
     SET mobile_api_enabled = true,
         mobile_api_key = $1,
+        mobile_api_key_created_at = CURRENT_TIMESTAMP,
+        mobile_api_key_expires_at = $4,
+        mobile_api_key_version = 1,
         api_rate_limits = COALESCE(api_rate_limits, '{"mobile_rpm": 60, "ecommerce_rpm": 120}'::jsonb),
         updated_at = CURRENT_TIMESTAMP
     WHERE id = $2 AND tenant_id = $3
-    RETURNING id, app_name, mobile_api_enabled
-  `, [newApiKey, id, tenantId]);
+    RETURNING id, app_name, mobile_api_enabled, mobile_api_key_expires_at, mobile_api_key_version
+  `, [newApiKey, id, tenantId, keyExpiresAt]);
+
+  // Log the key creation in audit trail
+  await logKeyRotation({
+    verificationAppId: id,
+    tenantId: tenantId,
+    apiType: 'mobile',
+    previousKey: null,
+    previousKeyVersion: null,
+    newKeyVersion: 1,
+    newKeyExpiresAt: keyExpiresAt,
+    initiatedByUserId: req.user.id,
+    initiatedByRole: req.user.role,
+    rotationReason: 'initial_setup',
+    notes: 'Initial mobile API key generation'
+  });
 
   return sendSuccess(res, {
+    app_id: result.rows[0].id,
     api_key: newApiKey,
-    warning: 'This is the only time you will see the full API key. Please save it securely.',
+    key_version: result.rows[0].mobile_api_key_version,
+    expires_at: result.rows[0].mobile_api_key_expires_at,
+    warning: 'This is the only time you will see the full API key. Please save it securely. Both app_id and api_key are required for authentication.',
     app: result.rows[0]
   }, 'Mobile API enabled successfully');
 });
@@ -312,6 +377,84 @@ exports.enableEcommerceApi = asyncHandler(async (req, res) => {
     warning: 'This is the only time you will see the full API key. Please save it securely.',
     app: result.rows[0]
   }, 'E-commerce API enabled successfully');
+});
+
+/**
+ * GET /api/verification-apps/:id/mobile-api/key-status
+ * Get current mobile API key status and lifecycle info (without exposing the key)
+ */
+exports.getMobileKeyStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const tenantId = req.user.tenant_id;
+
+  // Check if app exists
+  const appCheck = await db.query(`
+    SELECT
+      id,
+      app_name,
+      mobile_api_enabled,
+      mobile_api_key_created_at,
+      mobile_api_key_expires_at,
+      mobile_api_key_version,
+      mobile_api_key_rotation_allowed_until
+    FROM verification_apps
+    WHERE id = $1 AND tenant_id = $2
+  `, [id, tenantId]);
+
+  if (appCheck.rows.length === 0) {
+    throw new NotFoundError('Verification app');
+  }
+
+  const app = appCheck.rows[0];
+  const now = new Date();
+
+  // Determine key status
+  let keyStatus = 'active';
+  let statusMessage = 'API key is active and valid';
+
+  if (!app.mobile_api_enabled) {
+    keyStatus = 'disabled';
+    statusMessage = 'Mobile API is disabled';
+  } else if (app.mobile_api_expires_at && new Date(app.mobile_api_key_expires_at) < now) {
+    keyStatus = 'expired';
+    statusMessage = `API key expired on ${app.mobile_api_key_expires_at}. Please regenerate.`;
+  } else if (app.mobile_api_key_expires_at) {
+    const daysUntilExpiry = Math.ceil((new Date(app.mobile_api_key_expires_at) - now) / (1000 * 60 * 60 * 24));
+    if (daysUntilExpiry <= 14) {
+      keyStatus = 'expiring_soon';
+      statusMessage = `API key expires in ${daysUntilExpiry} days. Plan a rotation soon.`;
+    }
+  }
+
+  // Check if old key is still in grace period
+  let gracePeriodActive = false;
+  let gracePeriodEndsAt = null;
+  if (app.mobile_api_key_rotation_allowed_until && new Date(app.mobile_api_key_rotation_allowed_until) > now) {
+    gracePeriodActive = true;
+    gracePeriodEndsAt = app.mobile_api_key_rotation_allowed_until;
+  }
+
+  // Get rotation history
+  const history = await getKeyRotationHistory(id, 'mobile', 5);
+
+  return sendSuccess(res, {
+    app_id: app.id,
+    app_name: app.app_name,
+    key_status: keyStatus,
+    status_message: statusMessage,
+    key_lifecycle: {
+      version: app.mobile_api_key_version,
+      created_at: app.mobile_api_key_created_at,
+      expires_at: app.mobile_api_key_expires_at,
+      days_until_expiry: app.mobile_api_key_expires_at ? Math.ceil((new Date(app.mobile_api_key_expires_at) - now) / (1000 * 60 * 60 * 24)) : null
+    },
+    grace_period: {
+      active: gracePeriodActive,
+      old_key_allowed_until: gracePeriodEndsAt,
+      days_remaining: gracePeriodActive ? Math.ceil((new Date(gracePeriodEndsAt) - now) / (1000 * 60 * 60 * 24)) : 0
+    },
+    recent_rotations: history
+  });
 });
 
 /**

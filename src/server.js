@@ -99,7 +99,7 @@ const corsOptions = {
     }
   },
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug', 'X-App-Id']
 };
 
 app.use(cors(corsOptions));
