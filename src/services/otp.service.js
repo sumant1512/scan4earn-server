@@ -30,7 +30,7 @@ const checkRateLimit = (email) => {
   const requests = rateLimitStore.get(key);
   // Remove old requests outside the window
   const recentRequests = requests.filter(time => now - time < windowMs);
-  
+
   if (recentRequests.length >= maxRequests) {
     const oldestRequest = Math.min(...recentRequests);
     const waitTime = Math.ceil((windowMs - (now - oldestRequest)) / 1000 / 60);
@@ -115,9 +115,9 @@ const verifyOTP = async (email, otpCode) => {
       'UPDATE otps SET attempts = attempts + 1 WHERE id = $1',
       [otp.id]
     );
-    return { 
-      valid: false, 
-      message: `Invalid OTP. ${maxAttempts - otp.attempts - 1} attempts remaining` 
+    return {
+      valid: false,
+      message: `Invalid OTP. ${maxAttempts - otp.attempts - 1} attempts remaining`
     };
   }
 
@@ -136,10 +136,104 @@ const cleanupExpiredOTPs = async () => {
   );
 };
 
+
+/**
+ * Create and store application auth OTP
+ */
+const createAuthOTP = async (email, verificationAppId) => {
+  const otp = generateOTP();
+  const expiryMinutes = parseInt(process.env.OTP_EXPIRY_MINUTES) || 5;
+  const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
+
+  // Invalidate any existing OTPs for this email
+  await db.query(
+    'UPDATE application_otps SET is_used = true WHERE email = $1 AND verification_app_id = $2 AND is_used = false',
+    [email, verificationAppId]
+  );
+
+  // Insert new OTP
+  await db.query(
+    `INSERT INTO application_otps (email, otp_code, verification_app_id, attempts, expires_at, is_used)
+     VALUES ($1, $2, $3, $4, $5, false)`,
+    [email, otp, verificationAppId, 0, expiresAt]
+  );
+
+  return otp;
+};
+
+/**
+ * Verify application auth OTP
+ */
+const verifyAuthOTP = async (email, otpCode, verificationAppId) => {
+  // Get OTP
+  const result = await db.query(
+    `SELECT id, otp_code, expires_at, attempts, is_used
+     FROM application_otps
+     WHERE email = $1 AND verification_app_id = $2 AND is_used = false
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [email, verificationAppId]
+  );
+
+  if (result.rows.length === 0) {
+    return { valid: false, message: 'Invalid or expired OTP' };
+  }
+
+  const otp = result.rows[0];
+
+  // Check if already used
+  if (otp.is_used) {
+    return { valid: false, message: 'OTP has already been used' };
+  }
+
+  // Check if expired
+  if (new Date() > new Date(otp.expires_at)) {
+    await db.query('UPDATE application_otps SET is_used = true WHERE id = $1', [otp.id]);
+    return { valid: false, message: 'OTP has expired' };
+  }
+
+  // Check attempts
+  const maxAttempts = parseInt(process.env.OTP_MAX_ATTEMPTS) || 3;
+  if (otp.attempts >= maxAttempts) {
+    await db.query('UPDATE application_otps SET is_used = true WHERE id = $1', [otp.id]);
+    return { valid: false, message: 'Maximum OTP attempts exceeded' };
+  }
+
+  // Verify OTP code
+  if (otp.otp_code !== otpCode) {
+    // Increment attempts
+    await db.query(
+      'UPDATE application_otps SET attempts = attempts + 1 WHERE id = $1',
+      [otp.id]
+    );
+    return {
+      valid: false,
+      message: `Invalid OTP. ${maxAttempts - otp.attempts - 1} attempts remaining`
+    };
+  }
+
+  // OTP is valid - mark as used
+  await db.query('UPDATE application_otps SET is_used = true WHERE id = $1', [otp.id]);
+
+  return { valid: true, message: 'OTP verified successfully' };
+};
+
+/**
+ * Clean up expired OTPs (run periodically)
+ */
+const cleanupExpiredAuthOTPs = async () => {
+  await db.query(
+    'DELETE FROM application_otps WHERE expires_at < NOW() - INTERVAL \'1 day\''
+  );
+};
+
 module.exports = {
   generateOTP,
   checkRateLimit,
   createOTP,
   verifyOTP,
-  cleanupExpiredOTPs
+  cleanupExpiredOTPs,
+  createAuthOTP,
+  verifyAuthOTP,
+  cleanupExpiredAuthOTPs
 };
