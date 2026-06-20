@@ -8,7 +8,7 @@ const helmet = require('helmet');
 const db = require('./config/database');
 // Import routes
 const authRoutes = require('./routes/auth.routes');
-const userRoutes = require('./routes/user.routes');
+const appAuthRoutes = require('./routes/appAuth.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const rewardsRoutes = require('./routes/rewards.routes');
 const batchRoutes = require('./routes/batchRoutes');
@@ -156,7 +156,7 @@ app.get('/health', (req, res) => {
 
 // Core routes (refactored with modular structure)
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
+app.use('/api/app/auth', appAuthRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Super Admin routes (from modules/super-admin but same URLs)
