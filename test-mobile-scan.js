@@ -9,7 +9,7 @@ const axios = require('axios');
 const BASE_URL = 'http://tenant1.localhost:8080';
 const API_BASE = `${BASE_URL}/api/mobile/v1`;
 
-let accessToken = '';
+let authToken = '';
 let customerId = '';
 let scanId = '';
 
@@ -48,8 +48,8 @@ async function test2_VerifyOTP() {
       otp: '000000' // Dev mode OTP
     });
     log(`✅ Login successful`, 'green');
-    accessToken = response.data.data.accessToken;
-    log(`   Access Token: ${accessToken.substring(0, 50)}...`, 'yellow');
+    authToken = response.data.data.authToken;
+    log(`   Access Token: ${authToken.substring(0, 50)}...`, 'yellow');
     return true;
   } catch (error) {
     log(`❌ Failed: ${error.response?.data?.error || error.message}`, 'red');
@@ -61,7 +61,7 @@ async function test3_GetProfile() {
   log('\n👤 Test 3: Get Customer Profile', 'blue');
   try {
     const response = await axios.get(`${API_BASE}/auth/me`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
+      headers: { Authorization: `Bearer ${authToken}` }
     });
     log(`✅ Profile retrieved`, 'green');
     customerId = response.data.customer.id;
@@ -90,7 +90,7 @@ async function test4_ScanCoupon() {
         os_version: '17.2'
       }
     }, {
-      headers: { Authorization: `Bearer ${accessToken}` }
+      headers: { Authorization: `Bearer ${authToken}` }
     });
     
     if (response.data.success) {
@@ -119,7 +119,7 @@ async function test5_GetScanHistory() {
   log('\n📋 Test 5: Get Scan Transaction History', 'blue');
   try {
     const response = await axios.get(`${API_BASE}/scan/history?page=1&limit=10`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
+      headers: { Authorization: `Bearer ${authToken}` }
     });
     
     log(`✅ Scan history retrieved`, 'green');
@@ -151,7 +151,7 @@ async function test6_GetScanDetails() {
   
   try {
     const response = await axios.get(`${API_BASE}/scan/${scanId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
+      headers: { Authorization: `Bearer ${authToken}` }
     });
     
     log(`✅ Scan details retrieved`, 'green');
@@ -170,7 +170,7 @@ async function test7_GetScanStats() {
   log('\n📊 Test 7: Get Scan Statistics', 'blue');
   try {
     const response = await axios.get(`${API_BASE}/scan/stats/summary`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
+      headers: { Authorization: `Bearer ${authToken}` }
     });
     
     log(`✅ Statistics retrieved`, 'green');

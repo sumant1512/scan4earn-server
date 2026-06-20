@@ -51,7 +51,7 @@ function section(title) {
 
 async function run() {
   // ── 0. Fresh admin JWT ───────────────────────────────────────────────────
-  const { accessToken: ADMIN_TOKEN } = tokenService.generateTokens(
+  const { authToken: ADMIN_TOKEN } = tokenService.generateTokens(
     ADMIN_USER_ID, 'TENANT_ADMIN', TENANT_ID, 'palspaint'
   );
   const auth = { Authorization: `Bearer ${ADMIN_TOKEN}` };
@@ -217,7 +217,7 @@ async function run() {
     ['+919811223344', TENANT_ID]
   );
   const dealerUserId = dealerUserRes.rows[0].id;
-  const { accessToken: DEALER_TOKEN } = tokenService.generateTokens(dealerUserId, 'DEALER', TENANT_ID, 'palspaint');
+  const { authToken: DEALER_TOKEN } = tokenService.generateTokens(dealerUserId, 'DEALER', TENANT_ID, 'palspaint');
   const dealerAuth = { Authorization: `Bearer ${DEALER_TOKEN}` };
 
   // GET /me should NOT include a specific dealer_id (user-level response only)

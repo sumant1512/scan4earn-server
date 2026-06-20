@@ -164,10 +164,10 @@ exports.verifyOtp = asyncHandler(async (req, res) => {
           throw new ForbiddenError('Your dealer account has been deactivated. Please contact the administrator.');
         }
 
-        const { accessToken, refreshToken } = tokenService.generateTokens(
+        const { authToken, refreshToken } = tokenService.generateTokens(
           user.id, 'DEALER', tenant.id, tenant.subdomain_slug || null
         );
-        return { accessToken, refreshToken, role: 'DEALER', isNewUser: false };
+        return { authToken, refreshToken, role: 'DEALER', isNewUser: false };
       }
 
       // ── Customer login ───────────────────────────────────────────────
@@ -189,10 +189,10 @@ exports.verifyOtp = asyncHandler(async (req, res) => {
           );
         }
 
-        const { accessToken, refreshToken } = tokenService.generateTokens(
+        const { authToken, refreshToken } = tokenService.generateTokens(
           user.id, 'CUSTOMER', tenant.id, tenant.subdomain_slug || null
         );
-        return { accessToken, refreshToken, role: 'CUSTOMER', isNewUser: false };
+        return { authToken, refreshToken, role: 'CUSTOMER', isNewUser: false };
       }
     }
 
@@ -210,14 +210,14 @@ exports.verifyOtp = asyncHandler(async (req, res) => {
       [tenant.id, phone_e164]
     );
 
-    const { accessToken, refreshToken } = tokenService.generateTokens(
+    const { authToken, refreshToken } = tokenService.generateTokens(
       newUserId, 'CUSTOMER', tenant.id, tenant.subdomain_slug || null
     );
-    return { accessToken, refreshToken, role: 'CUSTOMER', isNewUser: true };
+    return { authToken, refreshToken, role: 'CUSTOMER', isNewUser: true };
   });
 
   return sendSuccess(res, {
-    accessToken:  result.accessToken,
+    authToken:  result.authToken,
     refreshToken: result.refreshToken,
     role:         result.role,
     is_new_user:  result.isNewUser
@@ -321,15 +321,15 @@ exports.dealerVerifyOtp = asyncHandler(async (req, res) => {
 
     const user = userRes.rows[0];
 
-    const { accessToken, refreshToken } = tokenService.generateTokens(
+    const { authToken, refreshToken } = tokenService.generateTokens(
       user.id, 'DEALER', tenant.id, tenant.subdomain_slug || null
     );
 
-    return { accessToken, refreshToken };
+    return { authToken, refreshToken };
   });
 
   return sendSuccess(res, {
-    accessToken:  result.accessToken,
+    authToken:  result.authToken,
     refreshToken: result.refreshToken,
     role:         'DEALER'
   }, 'Login successful');
@@ -512,7 +512,7 @@ exports.refresh = async (req, res) => {
     const tokens = tokenService.generateTokens(decoded.userId, decoded.role, decoded.tenantId, decoded.subdomainSlug);
 
     return sendSuccess(res, {
-      accessToken: tokens.accessToken,
+      authToken: tokens.authToken,
       refreshToken: tokens.refreshToken
     });
 

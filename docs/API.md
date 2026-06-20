@@ -97,7 +97,7 @@ Response:
   "success": true,
   "message": "Login successful",
   "data": {
-    "accessToken": "eyJhbGci...",
+    "authToken": "eyJhbGci...",
     "refreshToken": "eyJhbGci...",
     "userType": "SUPER_ADMIN",
     "subdomain": null  // null for super admin, tenant slug for tenant users
@@ -129,7 +129,7 @@ Response:
 
 ```bash
 GET /auth/context
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -165,7 +165,7 @@ Response:
   "success": true,
   "message": "Token refreshed successfully",
   "data": {
-    "accessToken": "eyJhbGci...",
+    "authToken": "eyJhbGci...",
     "refreshToken": "eyJhbGci..."
   }
 }
@@ -175,7 +175,7 @@ Response:
 
 ```bash
 POST /auth/logout
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 Content-Type: application/json
 
 {
@@ -285,7 +285,7 @@ Use the `/auth/context` endpoint to see current user's permissions:
 
 ```bash
 GET /auth/context
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -308,7 +308,7 @@ Feature flags allow controlled rollout of new features to specific tenants. Feat
 
 ```bash
 POST /api/features
-Authorization: Bearer {superAdminAccessToken}
+Authorization: Bearer {superAdminAuthToken}
 Content-Type: application/json
 
 {
@@ -341,7 +341,7 @@ Response:
 
 ```bash
 GET /api/features
-Authorization: Bearer {superAdminAccessToken}
+Authorization: Bearer {superAdminAuthToken}
 
 Response:
 {
@@ -367,7 +367,7 @@ Response:
 
 ```bash
 POST /api/features/tenants/{tenantId}/features/{featureId}
-Authorization: Bearer {superAdminAccessToken}
+Authorization: Bearer {superAdminAuthToken}
 
 Response:
 {
@@ -390,7 +390,7 @@ Response:
 
 ```bash
 DELETE /api/features/tenants/{tenantId}/features/{featureId}
-Authorization: Bearer {superAdminAccessToken}
+Authorization: Bearer {superAdminAuthToken}
 
 Response:
 {
@@ -403,7 +403,7 @@ Response:
 
 ```bash
 GET /api/features/tenants/{tenantId}/features
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -431,7 +431,7 @@ Response:
 
 ```bash
 GET /api/features/tenants/{tenantId}/features/{featureCode}/check
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -448,7 +448,7 @@ Response:
 
 ```bash
 POST /users/customers
-Authorization: Bearer {superAdminAccessToken}
+Authorization: Bearer {superAdminAuthToken}
 Content-Type: application/json
 
 {
@@ -493,7 +493,7 @@ Response:
 
 ```bash
 GET /users/customers
-Authorization: Bearer {superAdminAccessToken}
+Authorization: Bearer {superAdminAuthToken}
 
 Response:
 {
@@ -520,7 +520,7 @@ Response:
 
 ```bash
 GET /users/profile
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -541,7 +541,7 @@ Response:
 
 ```bash
 PUT /users/profile
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 Content-Type: application/json
 
 {
@@ -569,7 +569,7 @@ Response:
 
 ```bash
 GET /dashboard/stats
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 # Super Admin Response:
 {
@@ -701,7 +701,7 @@ Real-time availability checker for tenant subdomain registration.
 
 ```bash
 GET /tenants/check-slug/:slug
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 # Example
 GET /tenants/check-slug/acme-logistics
@@ -758,7 +758,7 @@ Generate alternative subdomain slugs based on tenant name.
 
 ```bash
 GET /tenants/suggest-slugs?name={tenantName}
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 # Example
 GET /tenants/suggest-slugs?name=Acme%20Logistics%20Inc
@@ -790,7 +790,7 @@ Response:
 
 ```bash
 POST /tenants
-Authorization: Bearer {superAdminAccessToken}
+Authorization: Bearer {superAdminAuthToken}
 Content-Type: application/json
 
 {
@@ -831,7 +831,7 @@ Response (Conflict):
 
 ```bash
 GET /tenants/by-subdomain/:slug
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 # Example
 GET /tenants/by-subdomain/acme
@@ -856,7 +856,7 @@ When a tenant user logs in, the system validates that they're accessing from the
 
 ```bash
 GET /auth/context
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 Host: acme.scan4earn.com
 
 Response (Valid Subdomain):
@@ -906,7 +906,7 @@ Tenants can create multiple verification applications (mobile apps, web apps) wi
 
 ```bash
 GET /api/rewards/verification-apps
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -930,7 +930,7 @@ Response:
 
 ```bash
 POST /api/rewards/verification-apps
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 Content-Type: application/json
 
 {
@@ -957,7 +957,7 @@ Response:
 
 ```bash
 POST /api/rewards/verification-apps/:id/regenerate-api-key
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -976,7 +976,7 @@ Response:
 
 ```bash
 PATCH /api/rewards/verification-apps/:id/toggle-status
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -995,7 +995,7 @@ Response:
 
 ```bash
 DELETE /api/rewards/verification-apps/:id
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -1014,7 +1014,7 @@ Response:
 
 ```bash
 GET /api/categories?app_id=1
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 # app_id=1 returns only categories for app 1
 # Omit app_id to see all categories across all apps
@@ -1037,7 +1037,7 @@ Response:
 
 ```bash
 GET /api/products?app_id=1
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -1060,7 +1060,7 @@ Response:
 
 ```bash
 GET /api/user-credits/:userId
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -1078,7 +1078,7 @@ Response:
 
 ```bash
 POST /api/user-credits/:userId/add
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 Content-Type: application/json
 
 {
@@ -1104,7 +1104,7 @@ Response:
 
 ```bash
 POST /api/user-credits/:userId/deduct
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 Content-Type: application/json
 
 {
@@ -1130,7 +1130,7 @@ Response:
 
 ```bash
 POST /api/user-credits/:userId/adjust
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 Content-Type: application/json
 
 {
@@ -1156,7 +1156,7 @@ Response:
 
 ```bash
 GET /api/user-credits/:userId/transactions?limit=50&offset=0
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -1185,7 +1185,7 @@ Response:
 
 ```bash
 GET /api/user-credits/:userId/stats
-Authorization: Bearer {accessToken}
+Authorization: Bearer {authToken}
 
 Response:
 {
@@ -1583,7 +1583,7 @@ LOGIN_RESPONSE=$(curl -s -X POST http://localhost:8080/api/auth/verify-otp \
   -d '{"email":"sumantmishra511@gmail.com","otp":"123456"}')
 
 # Extract token
-TOKEN=$(echo $LOGIN_RESPONSE | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
+TOKEN=$(echo $LOGIN_RESPONSE | grep -o '"authToken":"[^"]*' | cut -d'"' -f4)
 
 # Get dashboard stats
 curl -s http://localhost:8080/api/dashboard/stats \

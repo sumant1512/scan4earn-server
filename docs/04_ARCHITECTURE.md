@@ -403,7 +403,7 @@ if (req.user.userType === 'SUPER_ADMIN') {
      │                            │<───────────────────────────┤
      │                            │                            │
      │ 11. Return tokens          │                            │
-     │ { accessToken, refreshToken│                            │
+     │ { authToken, refreshToken│                            │
      │   userType, subdomain }    │                            │
      │<───────────────────────────┤                            │
      │                            │                            │
@@ -699,7 +699,7 @@ export const routes: Routes = [
 @Injectable()
 export class JwtInterceptor implements HttpInterceptor {
   intercept(req: HttpRequest<any>, next: HttpHandler) {
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem('authToken');
 
     if (token) {
       req = req.clone({

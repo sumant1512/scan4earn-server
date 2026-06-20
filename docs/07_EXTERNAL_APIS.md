@@ -478,8 +478,8 @@ Authorization: Bearer <jwt_access_token>
 **Getting JWT Token:**
 1. User requests OTP: `POST /api/auth/request-otp`
 2. User verifies OTP: `POST /api/auth/verify-otp`
-3. Receive `accessToken` and `refreshToken`
-4. Use `accessToken` in Authorization header
+3. Receive `authToken` and `refreshToken`
+4. Use `authToken` in Authorization header
 
 ---
 
@@ -1137,7 +1137,7 @@ Content-Type: application/json
   "success": true,
   "message": "Login successful",
   "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "authToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "userType": "TENANT_USER",
     "subdomain": "acme"

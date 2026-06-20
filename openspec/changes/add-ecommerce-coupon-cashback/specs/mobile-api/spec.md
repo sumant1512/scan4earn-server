@@ -25,7 +25,7 @@ The system SHALL provide mobile authentication endpoints under `/api/mobile/v1/a
   - Verify OTP matches and is not expired
   - If phone_e164 is new: create `users` (role=CUSTOMER, phone_e164 only — no name or email required) + `customers` (phone_verified=true)
   - Generate JWT with `{ userId, role: "CUSTOMER", tenantId, subdomainSlug }`
-  - Return `{ accessToken, refreshToken, role: "CUSTOMER", is_new_user: true/false }`
+  - Return `{ authToken, refreshToken, role: "CUSTOMER", is_new_user: true/false }`
 
 #### Scenario: Dealer OTP request
 - **WHEN** POST `/api/mobile/v1/auth/dealer/request-otp` is called with `{ phone_e164 }`
@@ -39,7 +39,7 @@ The system SHALL provide mobile authentication endpoints under `/api/mobile/v1/a
 - **THEN** the system SHALL:
   - Verify OTP for the dealer
   - Generate JWT with `{ userId, role: "DEALER", tenantId, subdomainSlug, dealerId }`
-  - Return `{ accessToken, refreshToken, role: "DEALER" }`
+  - Return `{ authToken, refreshToken, role: "DEALER" }`
 
 #### Scenario: Token refresh
 - **WHEN** POST `/api/mobile/v1/auth/refresh` is called with `{ refreshToken }`
