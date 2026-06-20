@@ -150,9 +150,82 @@ const requireAllFeatures = (featureCodes, options = {}) => {
   };
 };
 
+/**
+ * Require specific feature to be enabled for verification app
+ * Requires verification app ID to be available in req.params.appId or req.apiAuth.verificationAppId
+ * @param {string} featureCode - Feature code to check
+ * @param {Object} options - Options
+ * @param {string} options.errorMessage - Custom error message
+ * @param {string} options.appIdParam - Parameter name for app ID (default: 'appId')
+ * @returns {Function} Express middleware
+ */
+const requireFeatureForVerificationApp = (featureCode, options = {}) => {
+  return async (req, res, next) => {
+    try {
+      const appIdParam = options.appIdParam || 'appId';
+      const verificationAppId = req.params[appIdParam] || req.apiAuth?.verificationAppId;
+
+      if (!verificationAppId) {
+        return next(new ForbiddenError('Verification app context required for feature check'));
+      }
+
+      const isEnabled = await featureService.isFeatureEnabledForVerificationApp(featureCode, verificationAppId);
+
+      if (!isEnabled) {
+        const message = options.errorMessage || `Feature '${featureCode}' is not enabled for this verification app`;
+        return next(new ForbiddenError(message));
+      }
+
+      // Add feature status to request for potential use in handlers
+      req.features = req.features || {};
+      req.features[featureCode] = true;
+
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+};
+
+/**
+ * Check feature status for verification app without blocking (adds to req.features)
+ * Requires verification app ID to be available in req.params.appId or req.apiAuth.verificationAppId
+ * @param {string} featureCode - Feature code to check
+ * @param {Object} options - Options
+ * @param {string} options.appIdParam - Parameter name for app ID (default: 'appId')
+ * @returns {Function} Express middleware
+ */
+const checkFeatureForVerificationApp = (featureCode, options = {}) => {
+  return async (req, res, next) => {
+    try {
+      const appIdParam = options.appIdParam || 'appId';
+      const verificationAppId = req.params[appIdParam] || req.apiAuth?.verificationAppId;
+
+      if (verificationAppId) {
+        const isEnabled = await featureService.isFeatureEnabledForVerificationApp(featureCode, verificationAppId);
+        req.features = req.features || {};
+        req.features[featureCode] = isEnabled;
+      } else {
+        // No verification app context, assume disabled
+        req.features = req.features || {};
+        req.features[featureCode] = false;
+      }
+
+      next();
+    } catch (error) {
+      // On error, assume feature is disabled
+      req.features = req.features || {};
+      req.features[featureCode] = false;
+      next();
+    }
+  };
+};
+
 module.exports = {
   requireFeature,
   checkFeature,
   requireAnyFeature,
-  requireAllFeatures
+  requireAllFeatures,
+  requireFeatureForVerificationApp,
+  checkFeatureForVerificationApp
 };

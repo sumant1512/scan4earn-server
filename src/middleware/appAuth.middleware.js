@@ -41,6 +41,8 @@ const authenticate = async (req, res, next) => {
       id: decoded.userId,
       role: decoded.role,
       verification_app_id: decoded.verification_app_id || null,
+      tenantId: decoded.tenantId || null,
+      subdomainSlug: decoded.subdomainSlug || null,
       permissions: decoded.permissions || [] // Include permissions from JWT
     };
 

@@ -1379,6 +1379,110 @@ exports.toggleAppStatus = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Get all features for a verification app
+ * GET /api/rewards/verification-apps/:appId/features
+ */
+exports.getVerificationAppFeatures = asyncHandler(async (req, res) => {
+  const { appId } = req.params;
+  const tenantId = req.user.tenant_id;
+
+  // Verify app belongs to tenant
+  const appCheck = await db.query(
+    'SELECT id FROM verification_apps WHERE id = $1 AND tenant_id = $2',
+    [appId, tenantId]
+  );
+
+  if (appCheck.rows.length === 0) {
+    throw new NotFoundError('Verification app');
+  }
+
+  const featureService = require('../services/feature.service');
+  const features = await featureService.getVerificationAppFeatures(appId);
+
+  return sendSuccess(res, { features }, 'Features retrieved successfully');
+});
+
+/**
+ * Enable feature for verification app
+ * POST /api/rewards/verification-apps/:appId/features/:featureId/enable
+ */
+exports.enableFeatureForVerificationApp = asyncHandler(async (req, res) => {
+  const { appId, featureId } = req.params;
+  const tenantId = req.user.tenant_id;
+  const userId = req.user.id;
+
+  // Verify app belongs to tenant
+  const appCheck = await db.query(
+    'SELECT id FROM verification_apps WHERE id = $1 AND tenant_id = $2',
+    [appId, tenantId]
+  );
+
+  if (appCheck.rows.length === 0) {
+    throw new NotFoundError('Verification app');
+  }
+
+  const featureService = require('../services/feature.service');
+  const feature = await featureService.enableFeatureForVerificationApp(featureId, appId, userId, req);
+
+  return sendSuccess(res, { feature }, 'Feature enabled for verification app successfully', 201);
+});
+
+/**
+ * Disable feature for verification app
+ * POST /api/rewards/verification-apps/:appId/features/:featureId/disable
+ */
+exports.disableFeatureForVerificationApp = asyncHandler(async (req, res) => {
+  const { appId, featureId } = req.params;
+  const tenantId = req.user.tenant_id;
+  const userId = req.user.id;
+
+  // Verify app belongs to tenant
+  const appCheck = await db.query(
+    'SELECT id FROM verification_apps WHERE id = $1 AND tenant_id = $2',
+    [appId, tenantId]
+  );
+
+  if (appCheck.rows.length === 0) {
+    throw new NotFoundError('Verification app');
+  }
+
+  const featureService = require('../services/feature.service');
+  await featureService.disableFeatureForVerificationApp(featureId, appId, userId, req);
+
+  return sendSuccess(res, { success: true }, 'Feature disabled for verification app successfully');
+});
+
+/**
+ * Toggle feature for verification app
+ * POST /api/rewards/verification-apps/:appId/features/:featureId/toggle
+ */
+exports.toggleFeatureForVerificationApp = asyncHandler(async (req, res) => {
+  const { appId, featureId } = req.params;
+  const { enabled } = req.body;
+  const tenantId = req.user.tenant_id;
+  const userId = req.user.id;
+
+  if (enabled === undefined || typeof enabled !== 'boolean') {
+    throw new ValidationError('enabled field must be a boolean');
+  }
+
+  // Verify app belongs to tenant
+  const appCheck = await db.query(
+    'SELECT id FROM verification_apps WHERE id = $1 AND tenant_id = $2',
+    [appId, tenantId]
+  );
+
+  if (appCheck.rows.length === 0) {
+    throw new NotFoundError('Verification app');
+  }
+
+  const featureService = require('../services/feature.service');
+  const feature = await featureService.toggleFeatureForVerificationApp(featureId, appId, userId, enabled, req);
+
+  return sendSuccess(res, { feature }, `Feature ${enabled ? 'enabled' : 'disabled'} for verification app successfully`);
+});
+
+/**
  * Mark batch as printed
  * POST /api/rewards/coupons/batch/:batch_id/print
  */

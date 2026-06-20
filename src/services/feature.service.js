@@ -389,11 +389,16 @@ async function disableFeatureForTenant(featureId, tenantId, actorId, req = null)
       throw new Error('Feature not found');
     }
 
-    // Delete or disable tenant feature
+    // Upsert tenant feature (create if doesn't exist, update if does)
     const result = await client.query(
-      `UPDATE tenant_features
-       SET enabled = false, enabled_at = CURRENT_TIMESTAMP, enabled_by = $3
-       WHERE tenant_id = $1 AND feature_id = $2`,
+      `INSERT INTO tenant_features (tenant_id, feature_id, enabled, enabled_by)
+       VALUES ($1, $2, false, $3)
+       ON CONFLICT (tenant_id, feature_id)
+       DO UPDATE SET
+         enabled = false,
+         enabled_at = CURRENT_TIMESTAMP,
+         enabled_by = $3
+       RETURNING *`,
       [tenantId, featureId, actorId]
     );
 
@@ -553,6 +558,29 @@ async function toggleFeatureForTenant(featureId, tenantId, actorId, actorRole, e
             enabled_by = $3
         `, [tenantId, ancestor.id, actorId]);
       }
+    } else {
+      // For disabling, cascade disable to all descendants (children, grandchildren, etc.)
+      const descendants = await client.query(`
+        WITH RECURSIVE feature_descendants AS (
+          SELECT id FROM features WHERE parent_id = $1
+          UNION ALL
+          SELECT f.id FROM features f
+          INNER JOIN feature_descendants fd ON fd.id = f.parent_id
+        )
+        SELECT id FROM feature_descendants
+      `, [featureId]);
+
+      for (const descendant of descendants.rows) {
+        await client.query(`
+          INSERT INTO tenant_features (tenant_id, feature_id, enabled, enabled_by)
+          VALUES ($1, $2, false, $3)
+          ON CONFLICT (tenant_id, feature_id)
+          DO UPDATE SET
+            enabled = false,
+            enabled_at = CURRENT_TIMESTAMP,
+            enabled_by = $3
+        `, [tenantId, descendant.id, actorId]);
+      }
     }
 
     // Upsert tenant feature
@@ -590,6 +618,306 @@ async function toggleFeatureForTenant(featureId, tenantId, actorId, actorRole, e
   }
 }
 
+/**
+ * Enable feature for verification app
+ * @param {string} featureId - Feature ID
+ * @param {string} verificationAppId - Verification app ID
+ * @param {string} actorId - User enabling the feature
+ * @param {Object} req - Express request
+ * @returns {Promise<Object>} Verification app feature record
+ */
+async function enableFeatureForVerificationApp(featureId, verificationAppId, actorId, req = null) {
+  const client = await db.getClient();
+
+  try {
+    await client.query('BEGIN');
+
+    // Verify feature exists
+    const feature = await client.query(
+      'SELECT * FROM features WHERE id = $1 AND is_active = true',
+      [featureId]
+    );
+
+    if (feature.rows.length === 0) {
+      throw new Error('Feature not found or inactive');
+    }
+
+    // Verify verification app exists
+    const appCheck = await client.query(
+      'SELECT * FROM verification_apps WHERE id = $1',
+      [verificationAppId]
+    );
+
+    if (appCheck.rows.length === 0) {
+      throw new Error('Verification app not found');
+    }
+
+    // Upsert verification app feature
+    const result = await client.query(
+      `INSERT INTO verification_app_features (verification_app_id, feature_id, enabled, enabled_by)
+       VALUES ($1, $2, true, $3)
+       ON CONFLICT (verification_app_id, feature_id)
+       DO UPDATE SET
+         enabled = true,
+         enabled_at = CURRENT_TIMESTAMP,
+         enabled_by = $3
+       RETURNING *`,
+      [verificationAppId, featureId, actorId]
+    );
+
+    const appFeature = result.rows[0];
+
+    // Log audit entry
+    if (req) {
+      await auditService.logFeatureEnable(appFeature.id, actorId, {
+        feature_code: feature.rows[0].code,
+        verification_app_id: verificationAppId
+      }, req, client);
+    }
+
+    await client.query('COMMIT');
+
+    return appFeature;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Disable feature for verification app
+ * @param {string} featureId - Feature ID
+ * @param {string} verificationAppId - Verification app ID
+ * @param {string} actorId - User disabling the feature
+ * @param {Object} req - Express request
+ * @returns {Promise<void>}
+ */
+async function disableFeatureForVerificationApp(featureId, verificationAppId, actorId, req = null) {
+  const client = await db.getClient();
+
+  try {
+    await client.query('BEGIN');
+
+    // Get feature for audit
+    const feature = await client.query(
+      'SELECT * FROM features WHERE id = $1',
+      [featureId]
+    );
+
+    if (feature.rows.length === 0) {
+      throw new Error('Feature not found');
+    }
+
+    // Upsert verification app feature (create if doesn't exist, update if does)
+    const result = await client.query(
+      `INSERT INTO verification_app_features (verification_app_id, feature_id, enabled, enabled_by)
+       VALUES ($1, $2, false, $3)
+       ON CONFLICT (verification_app_id, feature_id)
+       DO UPDATE SET
+         enabled = false,
+         enabled_at = CURRENT_TIMESTAMP,
+         enabled_by = $3
+       RETURNING *`,
+      [verificationAppId, featureId, actorId]
+    );
+
+    // Log audit entry
+    if (req) {
+      await auditService.logFeatureDisable(featureId, actorId, {
+        feature_code: feature.rows[0].code,
+        verification_app_id: verificationAppId
+      }, req, client);
+    }
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Toggle feature for verification app
+ * @param {string} featureId - Feature ID
+ * @param {string} verificationAppId - Verification app ID
+ * @param {string} actorId - User toggling the feature
+ * @param {boolean} enabled - Desired state
+ * @param {Object} req - Express request
+ * @returns {Promise<Object>} Verification app feature record
+ */
+async function toggleFeatureForVerificationApp(featureId, verificationAppId, actorId, enabled, req = null) {
+  const client = await db.getClient();
+
+  try {
+    await client.query('BEGIN');
+
+    // Verify feature exists
+    const feature = await client.query(
+      'SELECT * FROM features WHERE id = $1 AND is_active = true',
+      [featureId]
+    );
+
+    if (feature.rows.length === 0) {
+      throw new Error('Feature not found or inactive');
+    }
+
+    // Verify verification app exists
+    const appCheck = await client.query(
+      'SELECT * FROM verification_apps WHERE id = $1',
+      [verificationAppId]
+    );
+
+    if (appCheck.rows.length === 0) {
+      throw new Error('Verification app not found');
+    }
+
+    // For enabling, ensure parent feature is enabled
+    if (enabled && feature.rows[0].parent_id) {
+      const parent = feature.rows[0];
+      // Enable parent for this verification app if not already
+      await client.query(`
+        INSERT INTO verification_app_features (verification_app_id, feature_id, enabled, enabled_by)
+        VALUES ($1, $2, true, $3)
+        ON CONFLICT (verification_app_id, feature_id)
+        DO UPDATE SET
+          enabled = true,
+          enabled_at = CURRENT_TIMESTAMP,
+          enabled_by = $3
+      `, [verificationAppId, parent.parent_id, actorId]);
+    } else if (!enabled) {
+      // For disabling, cascade disable to all descendants (children, grandchildren, etc.)
+      const descendants = await client.query(`
+        WITH RECURSIVE feature_descendants AS (
+          SELECT id FROM features WHERE parent_id = $1
+          UNION ALL
+          SELECT f.id FROM features f
+          INNER JOIN feature_descendants fd ON fd.id = f.parent_id
+        )
+        SELECT id FROM feature_descendants
+      `, [featureId]);
+
+      for (const descendant of descendants.rows) {
+        await client.query(`
+          INSERT INTO verification_app_features (verification_app_id, feature_id, enabled, enabled_by)
+          VALUES ($1, $2, false, $3)
+          ON CONFLICT (verification_app_id, feature_id)
+          DO UPDATE SET
+            enabled = false,
+            enabled_at = CURRENT_TIMESTAMP,
+            enabled_by = $3
+        `, [verificationAppId, descendant.id, actorId]);
+      }
+    }
+
+    // Upsert verification app feature
+    const result = await client.query(
+      `INSERT INTO verification_app_features (verification_app_id, feature_id, enabled, enabled_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (verification_app_id, feature_id)
+       DO UPDATE SET
+         enabled = $3,
+         enabled_at = CURRENT_TIMESTAMP,
+         enabled_by = $4
+       RETURNING *`,
+      [verificationAppId, featureId, enabled, actorId]
+    );
+
+    const appFeature = result.rows[0];
+
+    // Log audit entry
+    if (req) {
+      await auditService.logFeatureToggle(appFeature.id, actorId, {
+        feature_code: feature.rows[0].code,
+        verification_app_id: verificationAppId,
+        enabled: enabled
+      }, req, client);
+    }
+
+    await client.query('COMMIT');
+
+    return appFeature;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Check if feature is enabled for verification app
+ * Uses three-level hierarchy: app > tenant > global default
+ * @param {string} featureCode - Feature code
+ * @param {string} verificationAppId - Verification app ID
+ * @returns {Promise<boolean>} Whether feature is enabled
+ */
+async function isFeatureEnabledForVerificationApp(featureCode, verificationAppId) {
+  const result = await db.query(
+    'SELECT is_feature_enabled_for_verification_app($1, $2) as enabled',
+    [featureCode, verificationAppId]
+  );
+  return result.rows[0].enabled;
+}
+
+/**
+ * Get all features for a verification app with their enabled status
+ * Shows ALL active features with three-level hierarchy: app > tenant > global
+ * Includes inheritance information so UI knows what's explicitly set vs inherited
+ * @param {string} verificationAppId - Verification app ID
+ * @returns {Promise<Array>} List of all features with their status at each level
+ */
+async function getVerificationAppFeatures(verificationAppId) {
+  const result = await db.query(`
+    WITH app_context AS (
+      SELECT id, tenant_id FROM verification_apps WHERE id = $1
+    )
+    SELECT
+      f.id as feature_id,
+      f.code,
+      f.name,
+      f.description,
+      f.is_active,
+      f.default_enabled,
+      f.parent_id,
+      f.created_at,
+      f.updated_at,
+      -- App level (explicit override)
+      vaf.id as app_feature_id,
+      vaf.enabled as enabled_for_app,
+      vaf.enabled_at as app_enabled_at,
+      vaf.enabled_by as app_enabled_by,
+      -- Tenant level (inherited if no app override)
+      tf.id as tenant_feature_id,
+      tf.enabled as enabled_for_tenant,
+      tf.enabled_at as tenant_enabled_at,
+      tf.enabled_by as tenant_enabled_by,
+      -- Effective enabled status (hierarchy: app > tenant > global)
+      COALESCE(vaf.enabled, tf.enabled, f.default_enabled, false) as is_enabled,
+      -- Source indicator: which level is the effective setting from
+      CASE
+        WHEN vaf.enabled IS NOT NULL THEN 'app'
+        WHEN tf.enabled IS NOT NULL THEN 'tenant'
+        ELSE 'global'
+      END as enabled_from,
+      -- Verification app context
+      $1::uuid as verification_app_id
+    FROM features f
+    CROSS JOIN app_context ac
+    LEFT JOIN verification_app_features vaf 
+      ON f.id = vaf.feature_id AND vaf.verification_app_id = ac.id
+    LEFT JOIN tenant_features tf 
+      ON f.id = tf.feature_id AND tf.tenant_id = ac.tenant_id
+    WHERE f.is_active = true
+    ORDER BY f.created_at DESC
+  `, [verificationAppId]);
+
+  return result.rows;
+}
+
 module.exports = {
   createFeature,
   getFeatures,
@@ -601,5 +929,10 @@ module.exports = {
   disableFeatureForTenant,
   toggleFeatureForTenant,
   isFeatureEnabledForTenant,
-  getTenantFeatures
+  getTenantFeatures,
+  enableFeatureForVerificationApp,
+  disableFeatureForVerificationApp,
+  toggleFeatureForVerificationApp,
+  isFeatureEnabledForVerificationApp,
+  getVerificationAppFeatures
 };
