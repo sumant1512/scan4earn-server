@@ -21,7 +21,7 @@ const otpRateLimit = rateLimit({
 // Public routes
 router.post('/request-otp', otpRateLimit, appAuthController.requestOTP);
 router.post('/verify-otp', appAuthController.verifyOTP);
-router.post('/refresh', appAuthController.refreshAccessToken);
+router.post('/refresh', appAuthController.refreshAuthToken);
 
 // Protected routes
 router.get('/context', authenticate, appAuthController.getUserContext);

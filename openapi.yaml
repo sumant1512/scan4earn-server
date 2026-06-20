@@ -132,7 +132,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      accessToken:
+                      authToken:
                         type: string
                         example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
                       refreshToken:
@@ -193,7 +193,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      accessToken:
+                      authToken:
                         type: string
                       refreshToken:
                         type: string

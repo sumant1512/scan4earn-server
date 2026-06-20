@@ -55,14 +55,14 @@ ADMIN_TOKEN=$(node -e "
 const tokenService = require('./mscan-server/src/services/token.service');
 const adminPermissions = ['create_app', 'edit_app', 'delete_app', 'view_apps', 'create_coupon', 'edit_coupon', 'delete_coupon', 'view_coupons', 'create_product', 'edit_product', 'delete_product', 'view_products'];
 const tokens = tokenService.generateTokens('$TENANT_ADMIN_ID', 'TENANT_ADMIN', '$TENANT_ID', '$TENANT_SUBDOMAIN', adminPermissions);
-console.log(tokens.accessToken);
+console.log(tokens.authToken);
 ")
 
 USER_TOKEN=$(node -e "
 const tokenService = require('./mscan-server/src/services/token.service');
 const userPermissions = ['view_apps', 'view_coupons', 'view_products', 'view_categories'];
 const tokens = tokenService.generateTokens('$TENANT_USER_ID', 'TENANT_USER', '$TENANT_ID', '$TENANT_SUBDOMAIN', userPermissions);
-console.log(tokens.accessToken);
+console.log(tokens.authToken);
 ")
 
 echo "✅ Tokens generated"

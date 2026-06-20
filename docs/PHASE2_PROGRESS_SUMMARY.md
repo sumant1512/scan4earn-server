@@ -35,7 +35,7 @@ Refactor old controllers to use modern error handling, response utilities, valid
 
 **Changes Applied:**
 - ✅ Wrapped 3 functions with `asyncHandler` (removed try-catch)
-- ✅ Kept custom error handling in `refreshAccessToken` and `logout` (security requirement)
+- ✅ Kept custom error handling in `refreshAuthToken` and `logout` (security requirement)
 - ✅ Replaced inline validation with `validateRequiredFields` and `validateEmail`
 - ✅ Replaced manual error responses with AppError classes (`AuthenticationError`, `NotFoundError`, `ForbiddenError`, `RateLimitError`)
 - ✅ Replaced `res.status().json()` with `sendSuccess`, `sendError` utilities

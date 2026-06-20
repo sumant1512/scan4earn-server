@@ -17,7 +17,7 @@ const generateTokens = (userId, role, tenantId = null, subdomainSlug = null, per
   const accessJti = uuidv4();
   const refreshJti = uuidv4();
 
-  const accessToken = jwt.sign(
+  const authToken = jwt.sign(
     {
       userId,
       role,
@@ -46,7 +46,7 @@ const generateTokens = (userId, role, tenantId = null, subdomainSlug = null, per
   );
 
   return {
-    accessToken,
+    authToken,
     refreshToken,
     accessJti,
     refreshJti

@@ -36,15 +36,15 @@ describe('Token Service', () => {
     it('should generate access and refresh tokens', () => {
       const tokens = tokenService.generateTokens(mockUser.id, mockUser.role, mockUser.tenant_id);
 
-      expect(tokens).toHaveProperty('accessToken');
+      expect(tokens).toHaveProperty('authToken');
       expect(tokens).toHaveProperty('refreshToken');
-      expect(typeof tokens.accessToken).toBe('string');
+      expect(typeof tokens.authToken).toBe('string');
       expect(typeof tokens.refreshToken).toBe('string');
     });
 
     it('should include user info in access token', () => {
       const tokens = tokenService.generateTokens(mockUser.id, mockUser.role, mockUser.tenant_id);
-      const decoded = jwt.decode(tokens.accessToken);
+      const decoded = jwt.decode(tokens.authToken);
 
       expect(decoded).toHaveProperty('userId', mockUser.id);
       expect(decoded).toHaveProperty('role', mockUser.role);
@@ -54,7 +54,7 @@ describe('Token Service', () => {
 
     it('should set access token to expire in 30 minutes', () => {
       const tokens = tokenService.generateTokens(mockUser.id, mockUser.role, mockUser.tenant_id);
-      const decoded = jwt.decode(tokens.accessToken);
+      const decoded = jwt.decode(tokens.authToken);
 
       const expiryTime = decoded.exp - decoded.iat;
       expect(expiryTime).toBe(30 * 60); // 30 minutes in seconds
@@ -72,8 +72,8 @@ describe('Token Service', () => {
       const tokens1 = tokenService.generateTokens(mockUser.id, mockUser.role, mockUser.tenant_id);
       const tokens2 = tokenService.generateTokens(mockUser.id, mockUser.role, mockUser.tenant_id);
 
-      const decoded1Access = jwt.decode(tokens1.accessToken);
-      const decoded2Access = jwt.decode(tokens2.accessToken);
+      const decoded1Access = jwt.decode(tokens1.authToken);
+      const decoded2Access = jwt.decode(tokens2.authToken);
       const decoded1Refresh = jwt.decode(tokens1.refreshToken);
       const decoded2Refresh = jwt.decode(tokens2.refreshToken);
 

@@ -9,7 +9,7 @@ const { authenticate } = require('../middleware/auth.middleware');
 // Public routes
 router.post('/request-otp', authController.requestOTP);
 router.post('/verify-otp', authController.verifyOTP);
-router.post('/refresh', authController.refreshAccessToken);
+router.post('/refresh', authController.refreshAuthToken);
 
 // Protected routes
 router.get('/context', authenticate, authController.getUserContext);

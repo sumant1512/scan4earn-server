@@ -47,13 +47,13 @@ The system SHALL provide OTP-based mobile authentication for CUSTOMER users with
 - **THEN** the system SHALL create a `users` record with role=CUSTOMER, phone_e164 only (no name or email required)
 - **AND** create or update a `customers` record with phone_verified=true
 - **AND** generate JWT tokens with role=CUSTOMER, tenantId, and permissions
-- **AND** return `{ accessToken, refreshToken, role: "CUSTOMER", is_new_user: true }`
+- **AND** return `{ authToken, refreshToken, role: "CUSTOMER", is_new_user: true }`
 
 #### Scenario: Returning customer OTP login
 - **WHEN** a user submits a valid OTP for a previously registered mobile number
 - **THEN** the system SHALL NOT create a new user
 - **AND** generate JWT tokens for the existing CUSTOMER user
-- **AND** return `{ accessToken, refreshToken, role: "CUSTOMER", is_new_user: false }`
+- **AND** return `{ authToken, refreshToken, role: "CUSTOMER", is_new_user: false }`
 
 #### Scenario: OTP rate limiting for mobile
 - **WHEN** a mobile number requests more than 5 OTPs within 15 minutes
@@ -73,7 +73,7 @@ The system SHALL provide OTP-based mobile authentication for DEALER users. Deale
 - **WHEN** a dealer submits a valid OTP
 - **THEN** the system SHALL generate JWT tokens with role=DEALER
 - **AND** include dealer_id in the token payload
-- **AND** return `{ accessToken, refreshToken, role: "DEALER" }`
+- **AND** return `{ authToken, refreshToken, role: "DEALER" }`
 
 #### Scenario: Unregistered phone attempts dealer login
 - **WHEN** a mobile number not registered as DEALER attempts to login via dealer auth endpoint

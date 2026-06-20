@@ -151,7 +151,7 @@ const verifyOTP = asyncHandler(async (req, res) => {
   const permissions = getPermissionsByRole(user.role);
 
   // Generate tokens with subdomain and permissions
-  const { accessToken, refreshToken } = tokenService.generateTokens(
+  const { authToken, refreshToken } = tokenService.generateTokens(
     user.id,
     user.role,
     user.tenant_id,
@@ -167,7 +167,7 @@ const verifyOTP = asyncHandler(async (req, res) => {
   );
 
   return sendSuccess(res, {
-    accessToken,
+    authToken,
     refreshToken,
     userType: user.role,
     subdomain: user.subdomain_slug || null
@@ -233,7 +233,7 @@ const getUserContext = asyncHandler(async (req, res) => {
  * Refresh access token
  * Note: Uses custom error handling for security
  */
-const refreshAccessToken = async (req, res, next) => {
+const refreshAuthToken = async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
 
@@ -264,7 +264,7 @@ const refreshAccessToken = async (req, res, next) => {
     );
 
     return sendSuccess(res, {
-      accessToken: tokens.accessToken,
+      authToken: tokens.authToken,
       refreshToken: tokens.refreshToken
     }, 'Token refreshed successfully');
 
@@ -394,6 +394,6 @@ module.exports = {
   requestOTP,
   verifyOTP,
   getUserContext,
-  refreshAccessToken,
+  refreshAuthToken,
   logout
 };
