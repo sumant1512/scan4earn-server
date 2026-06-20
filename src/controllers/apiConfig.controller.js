@@ -39,7 +39,7 @@ function hashApiKey(apiKey) {
  */
 exports.getApiConfig = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const tenantId = req.user.tenantId;
+  const tenantId = req.user.tenant_id;
 
   const result = await db.query(`
     SELECT
@@ -77,13 +77,15 @@ exports.getApiConfig = asyncHandler(async (req, res) => {
   return sendSuccess(res, { config });
 });
 
+
+
 /**
  * PUT /api/verification-apps/:id/api-config
  * Update API configuration (enable/disable APIs, rate limits, field mappings)
  */
 exports.updateApiConfig = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const tenantId = req.user.tenantId;
+  const tenantId = req.user.tenant_id;
   const {
     mobile_api_enabled,
     ecommerce_api_enabled,
@@ -198,7 +200,7 @@ exports.regenerateMobileKey = asyncHandler(async (req, res) => {
  */
 exports.regenerateEcommerceKey = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const tenantId = req.user.tenantId;
+  const tenantId = req.user.tenant_id;
 
   // Check if app exists
   const appCheck = await db.query(
@@ -234,7 +236,7 @@ exports.regenerateEcommerceKey = asyncHandler(async (req, res) => {
  */
 exports.enableMobileApi = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const tenantId = req.user.tenantId;
+  const tenantId = req.user.tenant_id;
 
   // Check if app exists
   const appCheck = await db.query(
@@ -320,7 +322,7 @@ exports.enableEcommerceApi = asyncHandler(async (req, res) => {
  */
 exports.getApiUsage = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const tenantId = req.user.tenantId;
+  const tenantId = req.user.tenant_id;
   const { days = 7, api_type } = req.query;
 
   // Check if app exists

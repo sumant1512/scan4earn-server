@@ -41,6 +41,12 @@ router.delete('/verification-apps/:id', requireTenant, authMiddleware.requirePer
 router.post('/verification-apps/:id/regenerate-key', requireTenant, authMiddleware.requirePermission('edit_app'), rewardsController.regenerateApiKey);
 router.patch('/verification-apps/:id/toggle-status', requireTenant, authMiddleware.requirePermission('edit_app'), rewardsController.toggleAppStatus);
 
+// Verification app feature management routes (Tenant Admin only)
+router.get('/verification-apps/:appId/features', requireTenant, authMiddleware.requirePermission('view_apps'), rewardsController.getVerificationAppFeatures);
+router.post('/verification-apps/:appId/features/:featureId/enable', requireTenant, authMiddleware.requirePermission('edit_app'), rewardsController.enableFeatureForVerificationApp);
+router.post('/verification-apps/:appId/features/:featureId/disable', requireTenant, authMiddleware.requirePermission('edit_app'), rewardsController.disableFeatureForVerificationApp);
+router.post('/verification-apps/:appId/features/:featureId/toggle', requireTenant, authMiddleware.requirePermission('edit_app'), rewardsController.toggleFeatureForVerificationApp);
+
 // Coupon routes (Tenant)
 router.post('/coupons', requireTenant, authMiddleware.requirePermission('create_coupon'), rewardsController.createCoupon);
 router.post('/coupons/multi-batch', requireTenant, authMiddleware.requirePermission('create_batch'), rewardsController.createMultiBatchCoupons);

@@ -9,13 +9,15 @@ const express = require('express');
 const router = express.Router();
 const ecommerceApiController = require('../controllers/ecommerceApi.controller');
 const {
-  authenticateEcommerceApiKey,
+  authenticateEcommerce,
   requireEcommerceFeature,
   requireCustomerRef
 } = require('../middleware/ecommerceApiKey.middleware');
+const { authenticate } = require('../middleware/appAuth.middleware');
 
 // All routes require E-commerce API key authentication
-router.use(authenticateEcommerceApiKey);
+router.use(authenticate);
+router.use(authenticateEcommerce);
 
 // ── Existing product catalog endpoints (no feature flag required) ──────────────
 
