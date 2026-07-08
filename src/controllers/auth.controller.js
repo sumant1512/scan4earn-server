@@ -3,10 +3,30 @@
  * Refactored to use modern error handling and validators
  */
 const db = require('../config/database');
+const jwt = require('jsonwebtoken');
 const otpService = require('../services/otp.service');
 const tokenService = require('../services/token.service');
 const emailService = require('../services/email.service');
 const { asyncHandler } = require('../modules/common/middleware/errorHandler.middleware');
+
+function extractAccessJti(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = authHeader.substring(7).trim();
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET, { ignoreExpiration: true });
+    if (decoded?.type === 'access' && decoded.jti) {
+      return decoded.jti;
+    }
+  } catch (err) {
+    return null;
+  }
+
+  return null;
+}
 const {
   ValidationError,
   AuthenticationError,
@@ -241,6 +261,8 @@ const refreshAuthToken = async (req, res, next) => {
       return sendError(res, 'Refresh token is required', 400);
     }
 
+    const accessJti = extractAccessJti(req);
+
     // Verify refresh token
     const decoded = await tokenService.verifyRefreshToken(refreshToken);
 
@@ -258,7 +280,7 @@ const refreshAuthToken = async (req, res, next) => {
 
     // Blacklist old tokens
     await tokenService.blacklistTokens(
-      decoded.jti,
+      accessJti,
       decoded.jti,
       decoded.userId
     );

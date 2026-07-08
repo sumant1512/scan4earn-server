@@ -93,19 +93,21 @@ const blacklistTokens = async (accessJti, refreshJti, userId) => {
     const accessExpiry = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
     const refreshExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    // Blacklist access token
-    await client.query(
-      `INSERT INTO token_blacklist (token_jti, user_id, token_type, expires_at)
-       VALUES ($1, $2, 'ACCESS', $3)`,
-      [accessJti, userId, accessExpiry]
-    );
+    if (accessJti) {
+      await client.query(
+        `INSERT INTO token_blacklist (token_jti, user_id, token_type, expires_at)
+         VALUES ($1, $2, 'ACCESS', $3)`,
+        [accessJti, userId, accessExpiry]
+      );
+    }
 
-    // Blacklist refresh token
-    await client.query(
-      `INSERT INTO token_blacklist (token_jti, user_id, token_type, expires_at)
-       VALUES ($1, $2, 'REFRESH', $3)`,
-      [refreshJti, userId, refreshExpiry]
-    );
+    if (refreshJti) {
+      await client.query(
+        `INSERT INTO token_blacklist (token_jti, user_id, token_type, expires_at)
+         VALUES ($1, $2, 'REFRESH', $3)`,
+        [refreshJti, userId, refreshExpiry]
+      );
+    }
 
     await client.query('COMMIT');
   } catch (error) {
