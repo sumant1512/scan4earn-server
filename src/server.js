@@ -74,8 +74,8 @@ const corsOptions = {
       'https://scan4earn.com',   // ✅ add this
       'https://sumukham.com',   // ✅ add this
       'https://palspaint.com',   // ✅ add this
-      'http://www.sumukham.com', // ✅ add this
-      'http://www.palspaint.com', // ✅ add this
+      'https://www.sumukham.com', // ✅ add this
+      'https://www.palspaint.com', // ✅ add this
       'https://www.scan4earn.com' // ✅ optional but recommended
     ];
 
@@ -99,7 +99,8 @@ const corsOptions = {
     }
   },
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug']
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug', 'X-Customer-Ref', 'X-Verification-App-Id']
 };
 
 app.use(cors(corsOptions));
