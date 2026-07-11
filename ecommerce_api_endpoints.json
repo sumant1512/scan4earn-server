@@ -1,0 +1,240 @@
+{
+  "title": "E-commerce API Endpoints",
+  "version": "1.0",
+  "basePath": "/api/ecommerce/v1",
+  "endpoints": [
+    {
+      "id": "getProducts",
+      "method": "GET",
+      "path": "/api/ecommerce/v1/products",
+      "description": "List products for the requested verification app with pagination and optional filters.",
+      "queryParams": [
+        {"name":"page","type":"integer","required":false},
+        {"name":"limit","type":"integer","required":false},
+        {"name":"template_id","type":"string","required":false},
+        {"name":"search","type":"string","required":false},
+        {"name":"is_active","type":"boolean","required":false},
+        {"name":"updated_since","type":"string","required":false}
+      ],
+      "context": {
+        "auth": {
+          "type": "header_only",
+          "requiredHeaders": [
+            {
+              "name": "X-Verification-App-Id",
+              "required": true,
+              "description": "Identifies the verification app and resolves tenant context."
+            }
+          ],
+          "notes": "No Authorization header is required for this endpoint."
+        }
+      },
+      "responses": {
+        "200": "{ data: { products: [...], pagination: {...}, sync_timestamp: string } }"
+      },
+      "example": {
+        "curl": "curl -X GET \"http://localhost:3000/api/ecommerce/v1/products?page=1&limit=20\" -H \"X-Verification-App-Id: <APP_ID>\"",
+        "notes": "Send the verification app id in the header to resolve tenant context."
+      }
+    },
+    {
+      "id": "getProduct",
+      "method": "GET",
+      "path": "/api/ecommerce/v1/products/:id",
+      "description": "Get full product details by id.",
+      "pathParams": [{"name":"id","type":"integer","required":true}],
+      "responses": {"200": "{ data: { product: {...} } }", "404": "Product not found"}
+      ,
+      "example": {
+        "curl": "curl -X GET \"http://localhost:3000/api/ecommerce/v1/products/123\" -H \"Authorization: Bearer <API_KEY>\"",
+        "notes": "Replace 123 with product id and <API_KEY> with real token."
+      }
+    },
+    {
+      "id": "syncProducts",
+      "method": "POST",
+      "path": "/api/ecommerce/v1/products/sync",
+      "description": "Bulk create/update products from e-commerce platform (max 100).",
+      "body": {"products": [{"product_sku":"string","product_name":"string","description":"string","price":"number","currency":"string","image_url":"string","is_active":"boolean","template_id":"string","attributes":"object"}]},
+      "responses": {"200": "{ data: { summary: {...}, details: {...} } }","400": "Validation errors"}
+    },
+    {
+      "id": "updateProduct",
+      "method": "PUT",
+      "path": "/api/ecommerce/v1/products/:id",
+      "description": "Update a product (partial via COALESCE behaviour in controller).",
+      "pathParams": [{"name":"id","type":"integer","required":true}],
+      "body": {"product_name":"string","description":"string","price":"number","currency":"string","image_url":"string","is_active":"boolean","template_id":"string","attributes":"object"},
+      "responses": {"200": "{ data: { product: {...} } }","404": "Product not found"}
+    },
+    {
+      "id": "getTemplates",
+      "method": "GET",
+      "path": "/api/ecommerce/v1/templates",
+      "description": "List active product templates for tenant/app.",
+      "responses": {"200": "{ data: { templates: [...] } }"}
+    },
+    {
+      "id": "getCategories",
+      "method": "GET",
+      "path": "/api/ecommerce/v1/categories",
+      "description": "List active categories (tenant + app scoped).",
+      "responses": {"200": "{ data: { categories: [...] } }"}
+    },
+    {
+      "id": "getCategoryProducts",
+      "method": "GET",
+      "path": "/api/ecommerce/v1/categories/:id/products",
+      "description": "Paginated products for a category.",
+      "pathParams": [{"name":"id","type":"integer","required":true}],
+      "queryParams": [{"name":"page","type":"integer","required":false},{"name":"limit","type":"integer","required":false}],
+      "responses": {"200": "{ data: { products: [...], pagination: {...} } }","404":"Category not found"}
+    },
+    {
+      "id": "getProductStock",
+      "method": "GET",
+      "path": "/api/ecommerce/v1/products/:id/stock",
+      "description": "Get real-time stock info for a product.",
+      "pathParams": [{"name":"id","type":"integer","required":true}],
+      "responses": {"200": "{ data: { stock: {stock_quantity, stock_status, low_stock_threshold, track_inventory} } }","404":"Product not found"}
+    },
+    {
+      "id": "getCart",
+      "method": "GET",
+      "path": "/api/ecommerce/v1/cart",
+      "description": "Get current cart for authenticated customer (customerRef from auth).",
+      "responses": {"200": "{ data: { cart: { items: [...], subtotal: number } } }"}
+    },
+    {
+      "id": "addCartItem",
+      "method": "POST",
+      "path": "/api/ecommerce/v1/cart/items",
+      "description": "Add product to cart (increments quantity on conflict).",
+      "body": {"product_id":"integer","quantity":"integer"},
+      "responses": {"200": "Item already existed","201": "Item created/added","400": "Validation errors"}
+      ,
+      "example": {
+        "curl": "curl -X POST http://localhost:3000/api/ecommerce/v1/cart/items -H \"Authorization: Bearer <API_KEY>\" -H \"Content-Type: application/json\" -H \"X-Customer-Ref: cust_abc\" -d '{\"product_id\": 123, \"quantity\": 2}'",
+        "notes": "Include X-Customer-Ref header to identify customer."
+      }
+    },
+    {
+      "id": "updateCartItem",
+      "method": "PUT",
+      "path": "/api/ecommerce/v1/cart/items/:productId",
+      "description": "Set quantity for a cart item (replace).",
+      "pathParams": [{"name":"productId","type":"integer","required":true}],
+      "body": {"quantity":"integer"},
+      "responses": {"200": "{ data: { cart: {...} } }","404":"Cart item not found"}
+    },
+    {
+      "id": "removeCartItem",
+      "method": "DELETE",
+      "path": "/api/ecommerce/v1/cart/items/:productId",
+      "description": "Remove item from cart.",
+      "pathParams": [{"name":"productId","type":"integer","required":true}],
+      "responses": {"200": "{ data: { cart: {...} } }","404":"Cart item not found"}
+    },
+    {
+      "id": "clearCart",
+      "method": "DELETE",
+      "path": "/api/ecommerce/v1/cart",
+      "description": "Clear all items from cart (idempotent).",
+      "responses": {"200": "{ data: { cart: { items: [], subtotal: 0 } } }"}
+    },
+    {
+      "id": "placeOrder",
+      "method": "POST",
+      "path": "/api/ecommerce/v1/orders",
+      "description": "Place an order from cart or explicit items. Atomically validates and decrements stock for tracked products.",
+      "body": {"from_cart":"boolean","items":[{"product_id":"integer","quantity":"integer"}],"customer_name":"string","customer_email":"string","customer_phone":"string","tax_amount":"number","currency":"string","shipping_address":"object","notes":"string","metadata":"object"},
+      "responses": {"201": "{ data: { order: {...} } }","400": "Validation errors / insufficient stock"}
+      ,
+      "example": {
+        "curl": "curl -X POST http://localhost:3000/api/ecommerce/v1/orders -H \"Authorization: Bearer <API_KEY>\" -H \"Content-Type: application/json\" -H \"X-Customer-Ref: cust_abc\" -d '{\"from_cart\": true, \"tax_amount\": 10.5, \"currency\": \"INR\"}'",
+        "notes": "Use from_cart:true to place order using customer's cart."
+      }
+    },
+    {
+      "id": "getOrders",
+      "method": "GET",
+      "path": "/api/ecommerce/v1/orders",
+      "description": "List orders for a customer (filter by status).",
+      "queryParams": [{"name":"status","type":"string","required":false},{"name":"page","type":"integer","required":false},{"name":"limit","type":"integer","required":false}],
+      "responses": {"200": "{ data: { orders: [...], pagination: {...} } }"}
+    },
+    {
+      "id": "getOrder",
+      "method": "GET",
+      "path": "/api/ecommerce/v1/orders/:id",
+      "description": "Get single order with items.",
+      "pathParams": [{"name":"id","type":"integer","required":true}],
+      "responses": {"200": "{ data: { order: {..., items:[...] } } }","404":"Order not found"}
+    },
+    {
+      "id": "updateOrderStatus",
+      "method": "PATCH",
+      "path": "/api/ecommerce/v1/orders/:id/status",
+      "description": "Transition order status following allowed transitions (pending->confirmed->processing->...).",
+      "pathParams": [{"name":"id","type":"integer","required":true}],
+      "body": {"status":"string"},
+      "responses": {"200": "{ data: { order: {...} } }","400":"Invalid transition or validation error"}
+      ,
+      "example": {
+        "curl": "curl -X PATCH http://localhost:3000/api/ecommerce/v1/orders/456/status -H \"Authorization: Bearer <API_KEY>\" -H \"Content-Type: application/json\" -H \"X-Customer-Ref: cust_abc\" -d '{\"status\": \"confirmed\"}'",
+        "notes": "Status must follow allowed transitions; replace 456 with order id."
+      }
+    },
+    {
+      "id": "getWishlist",
+      "method": "GET",
+      "path": "/api/ecommerce/v1/wishlist",
+      "description": "Get customer's wishlist.",
+      "responses": {"200": "{ data: { items: [...] } }"}
+    },
+    {
+      "id": "addToWishlist",
+      "method": "POST",
+      "path": "/api/ecommerce/v1/wishlist",
+      "description": "Add product to wishlist (idempotent).",
+      "body": {"product_id":"integer"},
+      "responses": {"200": "Already present","201": "Added"}
+    },
+    {
+      "id": "removeFromWishlist",
+      "method": "DELETE",
+      "path": "/api/ecommerce/v1/wishlist/:productId",
+      "description": "Remove product from wishlist.",
+      "pathParams": [{"name":"productId","type":"integer","required":true}],
+      "responses": {"200": "Removed"}
+    }
+  ]
+  ,
+  "examples": [
+    {
+      "id": "getProducts",
+      "description": "List products (with pagination)",
+      "curl": "curl -X GET \"http://localhost:3000/api/ecommerce/v1/products?page=1&limit=20\" -H \"Authorization: Bearer <API_KEY>\""
+    },
+    {
+      "id": "getProduct",
+      "description": "Get a single product",
+      "curl": "curl -X GET \"http://localhost:3000/api/ecommerce/v1/products/123\" -H \"Authorization: Bearer <API_KEY>\""
+    },
+    {
+      "id": "addCartItem",
+      "description": "Add item to customer's cart (include customerRef header)",
+      "curl": "curl -X POST http://localhost:3000/api/ecommerce/v1/cart/items -H \"Authorization: Bearer <API_KEY>\" -H \"Content-Type: application/json\" -H \"X-Customer-Ref: cust_abc\" -d '{\"product_id\": 123, \"quantity\": 2}'"
+    },
+    {
+      "id": "placeOrder",
+      "description": "Place an order from cart",
+      "curl": "curl -X POST http://localhost:3000/api/ecommerce/v1/orders -H \"Authorization: Bearer <API_KEY>\" -H \"Content-Type: application/json\" -H \"X-Customer-Ref: cust_abc\" -d '{\"from_cart\": true, \"tax_amount\": 10.5, \"currency\": \"INR\"}'"
+    },
+    {
+      "id": "updateOrderStatus",
+      "description": "Transition an order status (example: confirm)",
+      "curl": "curl -X PATCH http://localhost:3000/api/ecommerce/v1/orders/456/status -H \"Authorization: Bearer <API_KEY>\" -H \"Content-Type: application/json\" -H \"X-Customer-Ref: cust_abc\" -d '{\"status\": \"confirmed\"}'"
+    }
+  ]
+}

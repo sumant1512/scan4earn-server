@@ -9,6 +9,72 @@
 const db = require('../config/database');
 const featureService = require('../services/feature.service');
 
+async function resolveAppContextFromHeader(req) {
+  const verificationAppId = req.headers['x-verification-app-id']
+  if (!verificationAppId) {
+    return null;
+  }
+
+  const result = await db.query(`
+    SELECT
+      va.id as verification_app_id,
+      va.app_name,
+      va.code as app_code,
+      va.tenant_id,
+      va.ecommerce_api_enabled,
+      va.api_rate_limits,
+      t.tenant_name,
+      t.subdomain_slug
+    FROM verification_apps va
+    JOIN tenants t ON va.tenant_id = t.id
+    WHERE va.id = $1 AND va.is_active = true
+    LIMIT 1
+  `, [verificationAppId]);
+
+  return result.rows[0] || null;
+}
+
+const requireVerificationAppContext = async (req, res, next) => {
+  try {
+    if (req.apiAuth?.verificationAppId && req.apiAuth?.tenantId) {
+      req.apiStartTime = req.apiStartTime || Date.now();
+      return next();
+    }
+
+    const app = await resolveAppContextFromHeader(req);
+
+    if (!app) {
+      return res.status(400).json({
+        status: false,
+        error: 'bad_request',
+        message: 'X-Verification-App-Id header is required'
+      });
+    }
+
+    req.apiAuth = {
+      verificationAppId: app.verification_app_id,
+      appName: app.app_name,
+      appCode: app.app_code,
+      tenantId: app.tenant_id,
+      tenantName: app.tenant_name,
+      subdomainSlug: app.subdomain_slug,
+      userId: null,
+      role: 'API_KEY',
+      authMethod: 'header_only'
+    };
+
+    req.apiStartTime = Date.now();
+    return next();
+  } catch (error) {
+    console.error('Verification app header resolution error:', error);
+    return res.status(500).json({
+      status: false,
+      error: 'internal_error',
+      message: 'Failed to resolve verification app context'
+    });
+  }
+};
+
 /**
  * Authenticate E-commerce API key from Authorization header
  * Supports two methods:
@@ -21,11 +87,11 @@ const authenticateEcommerce = async (req, res, next) => {
     const authHeader = req.get('Authorization');
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        status: false,
-        error: 'unauthorized',
-        message: 'Missing or invalid Authorization header'
-      });
+        return res.status(401).json({
+          status: false,
+          error: 'unauthorized',
+          message: 'Missing or invalid Authorization header'
+        });
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer '
@@ -288,5 +354,6 @@ const requireCustomerRef = (req, res, next) => {
 module.exports = {
   authenticateEcommerce,
   requireEcommerceFeature,
-  requireCustomerRef
+  requireCustomerRef,
+  requireVerificationAppContext
 };
