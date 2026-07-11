@@ -44,6 +44,7 @@ const { subdomainMiddleware } = require('./middleware/subdomain.middleware');
 const { errorHandler: globalErrorHandler } = require('./modules/common/middleware/errorHandler.middleware');
 const { requestLogger, requestValidator, sanitizeBody } = require('./modules/common/interceptors/request.interceptor');
 const { securityHeaders, compressionHints } = require('./modules/common/interceptors/response.interceptor');
+const { applyBodyParsing } = require('./config/bodyParser');
 
 // Import new modular routes
 const superAdminRoutes = require('./modules/super-admin/routes/index');
@@ -104,8 +105,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+applyBodyParsing(app);
 
 // Apply common interceptors
 app.use(securityHeaders);
