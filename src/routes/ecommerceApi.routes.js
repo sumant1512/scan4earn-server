@@ -19,6 +19,7 @@ const { authenticate } = require('../middleware/appAuth.middleware');
 // All routes require E-commerce API key authentication
 
 router.get('/products', requireVerificationAppContext, ecommerceApiController.getProducts);
+router.get('/products/:id', requireVerificationAppContext, ecommerceApiController.getProduct);
 
 router.use(authenticate);
 router.use(authenticateEcommerce);
@@ -27,7 +28,6 @@ router.use(authenticateEcommerce);
 
 // POST before GET /:id to avoid route capture
 router.post('/products/sync', ecommerceApiController.syncProducts);
-router.get('/products/:id', ecommerceApiController.getProduct);
 router.put('/products/:id', ecommerceApiController.updateProduct);
 router.get('/templates', ecommerceApiController.getTemplates);
 
