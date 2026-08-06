@@ -14,9 +14,9 @@ const { sendSuccess, sendPaginated } = require('../modules/common/utils/response
 exports.listProducts = asyncHandler(async (req, res) => {
   const { tenant_id } = req.user;
   const { page, limit } = validatePagination(req.query.page, req.query.limit);
-  const { search, category, sort } = req.query;
+  const { search, sort } = req.query;
 
-  const { products, total } = await ecommerceService.listProducts(tenant_id, { page, limit, search, category, sort });
+  const { products, total } = await ecommerceService.listProducts(tenant_id, { page, limit, search, sort });
   return sendPaginated(res, products, page, limit, total, 'products');
 });
 

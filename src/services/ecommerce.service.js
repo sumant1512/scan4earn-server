@@ -9,7 +9,7 @@ const { NotFoundError } = require('../modules/common/errors/AppError');
 /**
  * List products with pagination, search, and filtering
  */
-const listProducts = async (tenantId, { page = 1, limit = 10, search = null, category = null, sort = 'newest' }) => {
+const listProducts = async (tenantId, { page = 1, limit = 10, search = null, sort = 'newest' }) => {
   const offset = (page - 1) * limit;
   const params = [tenantId];
   let whereClause = 'p.tenant_id = $1 AND p.is_active = true';
@@ -17,11 +17,6 @@ const listProducts = async (tenantId, { page = 1, limit = 10, search = null, cat
   if (search) {
     params.push(`%${search}%`);
     whereClause += ` AND (p.product_name ILIKE $${params.length} OR p.description ILIKE $${params.length})`;
-  }
-
-  if (category) {
-    params.push(category);
-    whereClause += ` AND pt.template_name = $${params.length}`;
   }
 
   // Count
@@ -45,7 +40,6 @@ const listProducts = async (tenantId, { page = 1, limit = 10, search = null, cat
       p.description,
       p.price,
       p.image_url as image,
-      pt.template_name as category,
       COALESCE(
         (
           SELECT json_agg(json_build_object('id', t.id, 'name', t.name, 'icon', t.icon))
@@ -58,7 +52,6 @@ const listProducts = async (tenantId, { page = 1, limit = 10, search = null, cat
       CAST(4.5 as DECIMAL) as rating,
       CAST(2326 as INTEGER) as reviews
      FROM products p
-     LEFT JOIN product_templates pt ON p.template_id = pt.id
      WHERE ${whereClause}
      ORDER BY ${orderBy}
      LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -79,7 +72,6 @@ const getProductById = async (tenantId, productId) => {
       p.description,
       p.price,
       p.image_url as image,
-      pt.template_name as category,
       p.attributes,
       p.template_id,
       COALESCE(
@@ -93,10 +85,8 @@ const getProductById = async (tenantId, productId) => {
       ) as tags,
       CAST(4.5 as DECIMAL) as rating,
       CAST(2326 as INTEGER) as reviews,
-      'in_stock' as stock_status,
-      pt.template_name
+      'in_stock' as stock_status
      FROM products p
-     LEFT JOIN product_templates pt ON pt.id = p.template_id
      WHERE p.id = $1 AND p.tenant_id = $2 AND p.is_active = true`,
     [productId, tenantId]
   );
