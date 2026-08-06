@@ -3,7 +3,7 @@
  * Refactored to use modern error handling and validators
  *
  * Provides product catalog integration for e-commerce platforms
- * Requires E-commerce API key authentication
+ * Requires app authentication and verification-app context
  * Supports read/write operations for product synchronization
  */
 

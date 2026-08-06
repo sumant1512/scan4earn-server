@@ -1,9 +1,9 @@
 /**
- * E-commerce API Key Authentication Middleware
+ * Ecommerce auth context middleware
  *
- * Validates E-commerce API keys for external platform access
- * Checks rate limits and ensures API is enabled
- * Also supports JWT refresh token authentication
+ * Resolves the verification-app context used by ecommerce routes and
+ * preserves the existing feature-gating behavior without depending on
+ * a dedicated ecommerce API-key authentication flow.
  */
 
 const db = require('../config/database');
@@ -34,6 +34,54 @@ async function resolveAppContextFromHeader(req) {
   return result.rows[0] || null;
 }
 
+async function resolveAppContextFromUser(req) {
+  const verificationAppId = req.user?.verification_app_id;
+  if (!verificationAppId) {
+    return null;
+  }
+
+  const params = [verificationAppId];
+  let query = `
+    SELECT
+      va.id as verification_app_id,
+      va.app_name,
+      va.code as app_code,
+      va.tenant_id,
+      va.ecommerce_api_enabled,
+      va.api_rate_limits,
+      t.tenant_name,
+      t.subdomain_slug
+    FROM verification_apps va
+    JOIN tenants t ON va.tenant_id = t.id
+    WHERE va.id = $1 AND va.is_active = true
+  `;
+
+  if (req.user?.tenantId) {
+    query += ` AND va.tenant_id = $2`;
+    params.push(req.user.tenantId);
+  }
+
+  const result = await db.query(query, params);
+  return result.rows[0] || null;
+}
+
+function attachApiAuthContext(req, app, authMethod = 'header_only') {
+  req.apiAuth = {
+    verificationAppId: app.verification_app_id,
+    appName: app.app_name,
+    appCode: app.app_code,
+    tenantId: app.tenant_id,
+    tenantName: app.tenant_name,
+    subdomainSlug: app.subdomain_slug,
+    userId: req.user?.id || null,
+    role: req.user?.role || 'API_KEY',
+    permissions: req.user?.permissions || [],
+    authMethod
+  };
+
+  req.apiStartTime = req.apiStartTime || Date.now();
+}
+
 const requireVerificationAppContext = async (req, res, next) => {
   try {
     if (req.apiAuth?.verificationAppId && req.apiAuth?.tenantId) {
@@ -41,32 +89,20 @@ const requireVerificationAppContext = async (req, res, next) => {
       return next();
     }
 
-    const app = await resolveAppContextFromHeader(req);
+    const app = await resolveAppContextFromUser(req) || await resolveAppContextFromHeader(req);
 
     if (!app) {
       return res.status(400).json({
         status: false,
         error: 'bad_request',
-        message: 'X-Verification-App-Id header is required'
+        message: 'Verification app context is required'
       });
     }
 
-    req.apiAuth = {
-      verificationAppId: app.verification_app_id,
-      appName: app.app_name,
-      appCode: app.app_code,
-      tenantId: app.tenant_id,
-      tenantName: app.tenant_name,
-      subdomainSlug: app.subdomain_slug,
-      userId: null,
-      role: 'API_KEY',
-      authMethod: 'header_only'
-    };
-
-    req.apiStartTime = Date.now();
+    attachApiAuthContext(req, app, req.user ? 'jwt' : 'header_only');
     return next();
   } catch (error) {
-    console.error('Verification app header resolution error:', error);
+    console.error('Verification app context resolution error:', error);
     return res.status(500).json({
       status: false,
       error: 'internal_error',
@@ -76,183 +112,30 @@ const requireVerificationAppContext = async (req, res, next) => {
 };
 
 /**
- * Authenticate E-commerce API key from Authorization header
- * Supports two methods:
- * 1. API Key: Authorization: Bearer ecommerce_xxxxx
- * 2. JWT Token: Authorization: Bearer <jwt_token>
+ * Resolve ecommerce auth context from the current app-auth session.
+ * This preserves the existing request contract for ecommerce routes without
+ * relying on a dedicated ecommerce API-key flow.
  */
 const authenticateEcommerce = async (req, res, next) => {
   try {
-    // Extract API key from Authorization header
-    const authHeader = req.get('Authorization');
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-          status: false,
-          error: 'unauthorized',
-          message: 'Missing or invalid Authorization header'
-        });
-    }
-
-    const token = authHeader.substring(7); // Remove 'Bearer '
-
-    // Method 1: Try API Key authentication first
-    if (token.startsWith('ecommerce_')) {
-      const result = await db.query(`
-        SELECT
-          va.id as verification_app_id,
-          va.app_name,
-          va.code as app_code,
-          va.tenant_id,
-          va.ecommerce_api_enabled,
-          va.api_rate_limits,
-          t.tenant_name,
-          t.subdomain_slug
-        FROM verification_apps va
-        JOIN tenants t ON va.tenant_id = t.id
-        WHERE va.ecommerce_api_key = $1 AND va.is_active = true
-      `, [token]);
-
-      if (result.rows.length === 0) {
-        return res.status(401).json({
-          status: false,
-          error: 'unauthorized',
-          message: 'Invalid E-commerce API key'
-        });
-      }
-
-      const app = result.rows[0];
-
-      // Check if E-commerce API is enabled
-      if (!app.ecommerce_api_enabled) {
-        return res.status(403).json({
-          status: false,
-          error: 'forbidden',
-          message: 'E-commerce API is not enabled for this verification app'
-        });
-      }
-
-      // Check rate limit
-      const rateLimits = app.api_rate_limits || {};
-      const ecommerceRpm = rateLimits.ecommerce_rpm || 120; // Default 120 requests per minute
-
-      const rateLimitCheck = await checkRateLimit(
-        app.verification_app_id,
-        'ecommerce',
-        ecommerceRpm
-      );
-
-      if (!rateLimitCheck.allowed) {
-        return res.status(429).json({
-          status: false,
-          error: 'rate_limit_exceeded',
-          message: 'Too many requests. Please try again later.',
-          retry_after: rateLimitCheck.retryAfter
-        });
-      }
-
-      // Attach API auth info to request
-      req.apiAuth = {
-        verificationAppId: app.verification_app_id,
-        appName: app.app_name,
-        appCode: app.app_code,
-        tenantId: app.tenant_id,
-        tenantName: app.tenant_name,
-        subdomainSlug: app.subdomain_slug,
-        userId: null,
-        role: 'API_KEY',
-        authMethod: 'api_key'
-      };
-
-      req.apiStartTime = Date.now();
+    if (req.apiAuth?.verificationAppId && req.apiAuth?.tenantId) {
       return next();
     }
 
-    // Method 2: Try JWT Token authentication
-    try {
-      const decodedToken = req.user;
+    const app = await resolveAppContextFromUser(req) || await resolveAppContextFromHeader(req);
 
-      // Get verification app details from tenant
-      const appResult = await db.query(`
-        SELECT
-          va.id as verification_app_id,
-          va.app_name,
-          va.code as app_code,
-          va.tenant_id,
-          va.ecommerce_api_enabled,
-          va.api_rate_limits,
-          t.tenant_name,
-          t.subdomain_slug
-        FROM verification_apps va
-        JOIN tenants t ON va.tenant_id = t.id
-        WHERE va.tenant_id = $1 AND va.is_active = true
-        LIMIT 1
-      `, [decodedToken.tenantId]);
-
-      if (appResult.rows.length === 0) {
-        return res.status(403).json({
-          status: false,
-          error: 'forbidden',
-          message: 'No active verification app found for this tenant'
-        });
-      }
-
-      const app = appResult.rows[0];
-
-      // Check if E-commerce API is enabled
-      if (!app.ecommerce_api_enabled) {
-        return res.status(403).json({
-          status: false,
-          error: 'forbidden',
-          message: 'E-commerce API is not enabled for this tenant'
-        });
-      }
-
-      // Check rate limit
-      const rateLimits = app.api_rate_limits || {};
-      const ecommerceRpm = rateLimits.ecommerce_rpm || 120;
-
-      const rateLimitCheck = await checkRateLimit(
-        app.verification_app_id,
-        'ecommerce',
-        ecommerceRpm
-      );
-
-      if (!rateLimitCheck.allowed) {
-        return res.status(429).json({
-          status: false,
-          error: 'rate_limit_exceeded',
-          message: 'Too many requests. Please try again later.',
-          retry_after: rateLimitCheck.retryAfter
-        });
-      }
-
-      // Attach JWT auth info to request (decoded token data)
-      req.apiAuth = {
-        verificationAppId: app.verification_app_id,
-        appName: app.app_name,
-        appCode: app.app_code,
-        tenantId: decodedToken.tenantId,
-        tenantName: app.tenant_name,
-        subdomainSlug: app.subdomain_slug,
-        userId: decodedToken.id,
-        role: decodedToken.role,
-        permissions: decodedToken.permissions || [],
-        authMethod: 'jwt_token',
-      };
-
-      req.apiStartTime = Date.now();
-      return next();
-    } catch (jwtError) {
+    if (!app) {
       return res.status(401).json({
         status: false,
         error: 'unauthorized',
-        message: 'Invalid authentication token'
+        message: 'Verification app context is required'
       });
     }
 
+    attachApiAuthContext(req, app, req.user ? 'jwt' : 'header_only');
+    return next();
   } catch (error) {
-    console.error('E-commerce API authentication error:', error);
+    console.error('E-commerce auth context error:', error);
     res.status(500).json({
       status: false,
       error: 'internal_error',
