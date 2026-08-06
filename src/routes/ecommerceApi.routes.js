@@ -31,12 +31,6 @@ router.post('/products/sync', ecommerceApiController.syncProducts);
 router.put('/products/:id', ecommerceApiController.updateProduct);
 router.get('/templates', ecommerceApiController.getTemplates);
 
-// ── Categories (ecommerce-categories feature flag) ────────────────────────────
-
-router.use('/categories', requireEcommerceFeature('ecommerce-categories'));
-router.get('/categories', ecommerceApiController.getCategories);
-router.get('/categories/:id/products', ecommerceApiController.getCategoryProducts);
-
 // ── Inventory (ecommerce-inventory feature flag) ──────────────────────────────
 
 router.get('/products/:id/stock', requireEcommerceFeature('ecommerce-inventory'), ecommerceApiController.getProductStock);
