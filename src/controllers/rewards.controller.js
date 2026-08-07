@@ -36,7 +36,7 @@ exports.createVerificationApp = asyncHandler(async (req, res) => {
   const {
     app_name,
     description,
-    logo_url,
+    logo,
     primary_color,
     secondary_color,
     welcome_message,
@@ -102,11 +102,11 @@ exports.createVerificationApp = asyncHandler(async (req, res) => {
 
   const result = await db.query(
     `INSERT INTO verification_apps
-     (tenant_id, app_name, code, api_key, description, logo_url, primary_color, secondary_color,
+     (tenant_id, app_name, code, api_key, description, logo, primary_color, secondary_color,
       welcome_message, scan_success_message, scan_failure_message, post_scan_redirect_url, template_id, currency, is_active)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true)
      RETURNING *`,
-    [tenantId, app_name, code, apiKey, description, logo_url, primary_color, secondary_color,
+    [tenantId, app_name, code, apiKey, description, logo, primary_color, secondary_color,
      welcome_message || 'Welcome! Scan your QR code to redeem your reward.',
      scan_success_message || 'Success! Your coupon has been verified.',
      scan_failure_message || 'Sorry, this coupon is not valid.',
@@ -132,7 +132,7 @@ exports.getVerificationApps = asyncHandler(async (req, res) => {
               va.app_name,
               va.code,
               va.description,
-              va.logo_url,
+              va.logo,
               va.primary_color,
               va.secondary_color,
               va.welcome_message,
@@ -180,7 +180,7 @@ exports.getVerificationAppById = asyncHandler(async (req, res) => {
             va.app_name,
             va.code,
             va.description,
-            va.logo_url,
+            va.logo,
             va.primary_color,
             va.secondary_color,
             va.welcome_message,
@@ -201,7 +201,7 @@ exports.getVerificationAppById = asyncHandler(async (req, res) => {
      LEFT JOIN scans s ON c.id = s.coupon_id
      LEFT JOIN product_templates pt ON va.template_id = pt.id
      WHERE va.id = $1 AND va.tenant_id = $2
-     GROUP BY va.id, va.app_name, va.code, va.description, va.logo_url, va.primary_color, va.secondary_color, va.welcome_message, va.scan_success_message, va.scan_failure_message, va.post_scan_redirect_url, va.is_active, va.tenant_id, va.template_id, va.currency, pt.template_name, va.created_at, va.updated_at`,
+     GROUP BY va.id, va.app_name, va.code, va.description, va.logo, va.primary_color, va.secondary_color, va.welcome_message, va.scan_success_message, va.scan_failure_message, va.post_scan_redirect_url, va.is_active, va.tenant_id, va.template_id, va.currency, pt.template_name, va.created_at, va.updated_at`,
     [id, tenantId]
   );
 
@@ -225,7 +225,7 @@ exports.updateVerificationApp = asyncHandler(async (req, res) => {
     `UPDATE verification_apps
      SET app_name = COALESCE($1, app_name),
          description = COALESCE($2, description),
-         logo_url = COALESCE($3, logo_url),
+         logo = COALESCE($3, logo),
          primary_color = COALESCE($4, primary_color),
          secondary_color = COALESCE($5, secondary_color),
          welcome_message = COALESCE($6, welcome_message),
@@ -237,7 +237,7 @@ exports.updateVerificationApp = asyncHandler(async (req, res) => {
          updated_at = CURRENT_TIMESTAMP
      WHERE id = $12 AND tenant_id = $13
      RETURNING *`,
-    [updates.app_name, updates.description, updates.logo_url, updates.primary_color,
+    [updates.app_name, updates.description, updates.logo, updates.primary_color,
      updates.secondary_color, updates.welcome_message, updates.scan_success_message,
      updates.scan_failure_message, updates.post_scan_redirect_url,
      updates.template_id, updates.currency, id, tenantId]

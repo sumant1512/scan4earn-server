@@ -429,7 +429,7 @@ exports.getScanDetails = async ({ scanId, customerId, tenantId }) => {
         c.coupon_points as credits_earned,
         va.code as app_code,
         va.app_name,
-        va.logo_url
+        va.logo
       FROM scans s
       JOIN coupons c ON s.coupon_id = c.id
       JOIN verification_apps va ON c.verification_app_id = va.id
@@ -478,7 +478,7 @@ exports.getScanDetails = async ({ scanId, customerId, tenantId }) => {
         app: {
           code: scan.app_code,
           name: scan.app_name,
-          logo_url: scan.logo_url
+          logo: scan.logo
         },
         location: (scan.latitude && scan.longitude) ? {
           lat: parseFloat(scan.latitude),
