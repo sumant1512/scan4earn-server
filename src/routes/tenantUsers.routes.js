@@ -50,6 +50,17 @@ router.get(
 );
 
 /**
+ * PATCH /api/v1/tenants/:tenantId/users/:userId
+ * Update a tenant user's profile.
+ */
+router.patch(
+  '/:tenantId/users/:userId',
+  requireRole(['SUPER_ADMIN', 'TENANT_ADMIN']),
+  requirePermission('manage_tenant_users'),
+  tenantUsersController.updateTenantUser
+);
+
+/**
  * DELETE /api/v1/tenants/:tenantId/users/:userId
  * Delete a tenant user (soft delete)
  * Requires: manage_tenant_users permission OR SUPER_ADMIN

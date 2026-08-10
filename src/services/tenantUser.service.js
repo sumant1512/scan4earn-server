@@ -60,6 +60,16 @@ async function createUser(tenantId, userData, permissionIds = [], actorId, actor
       if (invalidPermissions.length > 0) {
         throw new Error(`Unauthorized permission assignments: ${invalidPermissions.map(p => p.error).join('; ')}`);
       }
+
+      if (userData.role === 'TENANT_USER') {
+        const permissions = await permissionService.getPermissionsByIds(permissionIds);
+        const writePermissionPattern = /^(create|edit|delete|manage|assign|request|approve|reject)_/;
+        const writePermissions = permissions.filter(permission => writePermissionPattern.test(permission.code));
+
+        if (writePermissions.length > 0) {
+          throw new Error('TENANT_USER can only receive view permissions');
+        }
+      }
     }
 
     // Create user
@@ -230,6 +240,26 @@ async function getUserWithPermissions(userId, tenantId) {
   user.permissions = await getEffectivePermissions(userId, tenantId);
 
   return user;
+}
+
+/**
+ * Update editable tenant-user profile fields.
+ */
+async function updateUser(userId, tenantId, userData) {
+  const result = await db.query(
+    `UPDATE users
+     SET full_name = $1,
+         phone = $2,
+         role = $3,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $4
+       AND tenant_id = $5
+       AND deleted_at IS NULL
+     RETURNING *`,
+    [userData.full_name, userData.phone || null, userData.role, userId, tenantId]
+  );
+
+  return result.rows[0] || null;
 }
 
 /**
@@ -465,6 +495,7 @@ async function getEffectivePermissions(userId, tenantId) {
 
 module.exports = {
   createUser,
+  updateUser,
   listUsers,
   getUserWithPermissions,
   deleteUser,

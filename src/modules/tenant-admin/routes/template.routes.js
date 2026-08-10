@@ -19,7 +19,7 @@ router.use(requestValidator);
  * @access  Private (Tenant Admin, Super Admin)
  */
 router.get('/',
-  requireRole(['TENANT_ADMIN', 'SUPER_ADMIN']),
+  requireRole(['TENANT_ADMIN', 'TENANT_USER', 'SUPER_ADMIN']),
   templateController.getAllTemplates
 );
 
@@ -29,7 +29,7 @@ router.get('/',
  * @access  Private (Tenant Admin, Super Admin)
  */
 router.get('/:id',
-  requireRole(['TENANT_ADMIN', 'SUPER_ADMIN']),
+  requireRole(['TENANT_ADMIN', 'TENANT_USER', 'SUPER_ADMIN']),
   templateController.getTemplateById
 );
 
@@ -94,7 +94,7 @@ router.post('/:id/duplicate',
  * @access  Private (Tenant Admin, Super Admin)
  */
 router.get('/app/:appId',
-  requireRole(['TENANT_ADMIN', 'SUPER_ADMIN']),
+  requireRole(['TENANT_ADMIN', 'TENANT_USER', 'SUPER_ADMIN']),
   templateController.getTemplatesForApp
 );
 

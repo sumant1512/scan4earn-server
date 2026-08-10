@@ -84,6 +84,10 @@ const createTenantUser = asyncHandler(async (req, res) => {
       throw new ValidationError(error.message);
     }
 
+    if (error.message.includes('TENANT_USER can only receive')) {
+      throw new ValidationError(error.message);
+    }
+
     throw error;
   }
 });
@@ -113,6 +117,37 @@ const listTenantUsers = asyncHandler(async (req, res) => {
     users: result.users,
     pagination: result.pagination
   });
+});
+
+/**
+ * Update a tenant user's profile.
+ * PATCH /api/v1/tenants/:tenantId/users/:userId
+ */
+const updateTenantUser = asyncHandler(async (req, res) => {
+  const { tenantId, userId } = req.params;
+  const { full_name, phone, role } = req.body;
+
+  validateRequiredFields(req.body, ['full_name', 'role']);
+
+  if (req.user.role !== 'SUPER_ADMIN' && req.user.tenant_id !== tenantId) {
+    throw new ForbiddenError('Cannot update users from other tenants');
+  }
+
+  if (!['TENANT_ADMIN', 'TENANT_USER'].includes(role)) {
+    throw new ValidationError('Role must be TENANT_ADMIN or TENANT_USER');
+  }
+
+  const user = await tenantUserService.updateUser(userId, tenantId, {
+    full_name,
+    phone,
+    role
+  });
+
+  if (!user) {
+    throw new NotFoundError('User');
+  }
+
+  return sendSuccess(res, { user }, 'User updated successfully');
 });
 
 /**
@@ -273,6 +308,7 @@ const assignTenantPermissions = asyncHandler(async (req, res) => {
 
 module.exports = {
   createTenantUser,
+  updateTenantUser,
   listTenantUsers,
   getTenantUser,
   deleteTenantUser,
