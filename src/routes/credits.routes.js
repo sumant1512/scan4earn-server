@@ -58,7 +58,7 @@ const requireTenant = (req, res, next) => {
 
 // Tenant Admin routes (for TENANT_ADMIN and TENANT_USER)
 router.get('/balance', requireTenant, tenantAdminCreditController.getBalance);
-router.post('/request', requireTenant, preventDuplicates(2000), tenantAdminCreditController.createRequest);
+router.post('/request', requireTenant, authMiddleware.requireRole(['TENANT_ADMIN']), preventDuplicates(2000), tenantAdminCreditController.createRequest);
 router.get('/requests',
   (req, res, next) => {
     // Route based on role

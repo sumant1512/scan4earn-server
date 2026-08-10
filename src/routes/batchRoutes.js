@@ -7,15 +7,14 @@ const router = express.Router();
 const batchController = require('../controllers/batchController');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
 
-// All routes require authentication and tenant admin role
+// All routes require authentication.
 router.use(authenticate);
-router.use(authorize('TENANT_ADMIN'));
 
 // Batch workflow
-router.post('/', batchController.createBatch);
-router.post('/:batch_id/assign-codes', batchController.assignSerialNumbers);
-router.post('/:batch_id/activate', batchController.activateBatch);
-router.get('/:batch_id', batchController.getBatchDetails);
-router.get('/', batchController.listBatches);
+router.get('/:batch_id', authorize('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER'), batchController.getBatchDetails);
+router.get('/', authorize('SUPER_ADMIN', 'TENANT_ADMIN', 'TENANT_USER'), batchController.listBatches);
+router.post('/', authorize('SUPER_ADMIN', 'TENANT_ADMIN'), batchController.createBatch);
+router.post('/:batch_id/assign-codes', authorize('SUPER_ADMIN', 'TENANT_ADMIN'), batchController.assignSerialNumbers);
+router.post('/:batch_id/activate', authorize('SUPER_ADMIN', 'TENANT_ADMIN'), batchController.activateBatch);
 
 module.exports = router;

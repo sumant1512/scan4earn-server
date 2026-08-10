@@ -9,16 +9,15 @@ const router = express.Router({ mergeParams: true });
 const dealerController = require('../controllers/dealer.controller');
 const { authenticate, requireRole } = require('../middleware/auth.middleware');
 
-// All routes require authentication + TENANT_ADMIN role
+// All routes require authentication.
 router.use(authenticate);
-router.use(requireRole(['TENANT_ADMIN', 'SUPER_ADMIN']));
 
-router.post('/', dealerController.createDealer);
-router.get('/', dealerController.listDealers);
-router.get('/:id', dealerController.getDealer);
-router.put('/:id', dealerController.updateDealer);
-router.patch('/:id/status', dealerController.toggleStatus);
-router.get('/:id/points', dealerController.getPoints);
-router.get('/:id/transactions', dealerController.getTransactions);
+router.get('/', requireRole(['TENANT_ADMIN', 'TENANT_USER', 'SUPER_ADMIN']), dealerController.listDealers);
+router.get('/:id', requireRole(['TENANT_ADMIN', 'TENANT_USER', 'SUPER_ADMIN']), dealerController.getDealer);
+router.get('/:id/points', requireRole(['TENANT_ADMIN', 'TENANT_USER', 'SUPER_ADMIN']), dealerController.getPoints);
+router.get('/:id/transactions', requireRole(['TENANT_ADMIN', 'TENANT_USER', 'SUPER_ADMIN']), dealerController.getTransactions);
+router.post('/', requireRole(['TENANT_ADMIN', 'SUPER_ADMIN']), dealerController.createDealer);
+router.put('/:id', requireRole(['TENANT_ADMIN', 'SUPER_ADMIN']), dealerController.updateDealer);
+router.patch('/:id/status', requireRole(['TENANT_ADMIN', 'SUPER_ADMIN']), dealerController.toggleStatus);
 
 module.exports = router;

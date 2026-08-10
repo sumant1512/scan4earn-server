@@ -44,6 +44,19 @@ const authenticate = async (req, res, next) => {
       permissions: decoded.permissions || [] // Include permissions from JWT
     };
 
+    // TENANT_USER is strictly read-only across tenant APIs. Logout remains allowed.
+    if (
+      req.user.role === 'TENANT_USER' &&
+      !['GET', 'HEAD', 'OPTIONS'].includes(req.method) &&
+      !req.originalUrl.endsWith('/logout')
+    ) {
+      return res.status(403).json({
+        status: false,
+        message: 'Tenant users have read-only access',
+        code: 'READ_ONLY_ROLE'
+      });
+    }
+
     // For CUSTOMER role, fetch customer context
     if (decoded.role === 'CUSTOMER') {
       const customerResult = await db.query(

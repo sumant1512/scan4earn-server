@@ -34,9 +34,9 @@ router.get('/:id', controller.getRequest);
 // ── Actions ────────────────────────────────────────────────────────────────
 
 // POST /api/redemptions/:id/approve
-router.post('/:id/approve', controller.approveRequest);
+router.post('/:id/approve', requireRole(['TENANT_ADMIN']), controller.approveRequest);
 
 // POST /api/redemptions/:id/reject   { reason?: "..." }
-router.post('/:id/reject', controller.rejectRequest);
+router.post('/:id/reject', requireRole(['TENANT_ADMIN']), controller.rejectRequest);
 
 module.exports = router;
