@@ -37,6 +37,7 @@ router.post('/', preventDuplicates(2000), tenantController.createTenant);
 router.get('/', tenantController.getAllTenants);
 router.get('/:id', tenantController.getTenantById);
 router.get('/:tenantId/admins', tenantController.getTenantAdmins);
+router.post('/:tenantId/subscriptions', preventDuplicates(2000), tenantController.addSubscription);
 router.put('/:id', preventDuplicates(2000), tenantController.updateTenant);
 router.patch('/:id/status', preventDuplicates(2000), tenantController.toggleTenantStatus);
 

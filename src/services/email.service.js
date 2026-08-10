@@ -156,12 +156,12 @@ const sendWelcomeEmail = async (to, companyName) => {
         <body>
           <div class="container">
             <div class="header">
-              <h1>Welcome to TMS!</h1>
+              <h1>Welcome to Scan4Earn!</h1>
             </div>
             <div class="content">
               <h2>Your Account Has Been Created</h2>
               <p>Hello ${companyName},</p>
-              <p>Your TMS account has been successfully created by our administrator.</p>
+              <p>Your Scan4Earn account has been successfully created by our administrator.</p>
               <p>You can now log in to the system using your email address. We use secure OTP (One-Time Password) authentication, so you'll receive a code via email each time you log in.</p>
               <p><strong>Your login email:</strong> ${to}</p>
               <p>To get started, visit the login page and enter your email address to receive an OTP code.</p>
@@ -169,7 +169,7 @@ const sendWelcomeEmail = async (to, companyName) => {
             </div>
             <div class="footer">
               <p>If you have any questions, please contact your system administrator.</p>
-              <p>© ${new Date().getFullYear()} TMS System. All rights reserved.</p>
+              <p>© ${new Date().getFullYear()} Scan4Earn System. All rights reserved.</p>
             </div>
           </div>
         </body>
