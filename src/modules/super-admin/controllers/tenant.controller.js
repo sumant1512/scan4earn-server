@@ -13,6 +13,14 @@ const { executeTransaction, executeQuery } = require('../../common/utils/databas
 const { validateRequiredFields, validateEmail, validateSlug } = require('../../common/validators/common.validator');
 const { sendSuccess, sendCreated, sendNotFound, sendConflict } = require('../../common/utils/response.util');
 
+const ALLOWED_SUBSCRIPTION_DURATIONS = [1, 3, 6, 9, 12];
+
+function calculateSubscriptionEndDate(startDate, durationMonths) {
+  const date = new Date(`${startDate}T00:00:00Z`);
+  date.setUTCMonth(date.getUTCMonth() + durationMonths);
+  return date.toISOString().slice(0, 10);
+}
+
 class TenantController {
   /**
    * Create a new tenant
@@ -26,7 +34,14 @@ class TenantController {
       email,
       phone,
       address,
-      max_verification_apps
+      max_verification_apps,
+      price_per_app_month = 0,
+      subscription_duration_months = 1,
+      subscription_start_date,
+      payment_method,
+      payment_reference,
+      payment_notes,
+      payment_status = 'paid'
     } = req.body;
     const createdBy = req.user.id;
 
@@ -37,6 +52,29 @@ class TenantController {
         throw new ValidationError('max_verification_apps must be a positive integer');
       }
     }
+
+    const appLimit = max_verification_apps !== undefined
+      ? parseInt(max_verification_apps, 10)
+      : (parseInt(process.env.DEFAULT_MAX_VERIFICATION_APPS, 10) || 1);
+    const monthlyPrice = Number(price_per_app_month);
+    const durationMonths = parseInt(subscription_duration_months, 10);
+    const startDate = subscription_start_date || new Date().toISOString().slice(0, 10);
+
+    if (!Number.isFinite(monthlyPrice) || monthlyPrice < 0) {
+      throw new ValidationError('price_per_app_month must be a non-negative number');
+    }
+    if (!ALLOWED_SUBSCRIPTION_DURATIONS.includes(durationMonths)) {
+      throw new ValidationError('subscription_duration_months must be 1, 3, 6, 9, or 12');
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || Number.isNaN(new Date(`${startDate}T00:00:00Z`).getTime())) {
+      throw new ValidationError('subscription_start_date must be a valid date');
+    }
+    if (!['paid', 'pending', 'failed'].includes(payment_status)) {
+      throw new ValidationError('payment_status must be paid, pending, or failed');
+    }
+
+    const endDate = calculateSubscriptionEndDate(startDate, durationMonths);
+    const totalAmount = (appLimit * monthlyPrice * durationMonths).toFixed(2);
 
     // Validation
     validateRequiredFields(req.body, ['tenant_name', 'email']);
@@ -74,9 +112,6 @@ class TenantController {
     // Create tenant in transaction
     const tenant = await executeTransaction(pool, async (client) => {
       // Build settings JSONB
-      const appLimit = max_verification_apps !== undefined
-        ? parseInt(max_verification_apps, 10)
-        : (parseInt(process.env.DEFAULT_MAX_VERIFICATION_APPS, 10) || 1);
       const settings = { max_verification_apps: appLimit };
 
       // Create tenant with subdomain
@@ -88,6 +123,29 @@ class TenantController {
       );
 
       const newTenant = result.rows[0];
+
+      await client.query(
+        `INSERT INTO tenant_subscriptions
+          (tenant_id, app_count, price_per_app_month, duration_months, total_amount,
+           start_date, end_date, status, payment_status, payment_method,
+           payment_reference, payment_notes, paid_at, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', $8, $9, $10, $11, $12, $13)`,
+        [
+          newTenant.id,
+          appLimit,
+          monthlyPrice,
+          durationMonths,
+          totalAmount,
+          startDate,
+          endDate,
+          payment_status,
+          payment_method || null,
+          payment_reference || null,
+          payment_notes || null,
+          payment_status === 'paid' ? new Date() : null,
+          createdBy
+        ]
+      );
 
       // Create tenant admin user
       await client.query(
@@ -126,10 +184,106 @@ class TenantController {
         address: tenant.address,
         is_active: tenant.is_active,
         settings: tenant.settings,
+        subscription: {
+          app_count: appLimit,
+          price_per_app_month: monthlyPrice,
+          duration_months: durationMonths,
+          total_amount: totalAmount,
+          start_date: startDate,
+          end_date: endDate,
+          status: 'active',
+          payment_status
+        },
         created_at: tenant.created_at
       },
       subdomain_url: subdomainUrl
     }, 'Tenant created successfully');
+  });
+
+  /**
+   * Record a renewal or subscription extension.
+   * POST /api/super-admin/tenants/:tenantId/subscriptions
+   */
+  addSubscription = asyncHandler(async (req, res) => {
+    const { tenantId } = req.params;
+    const {
+      app_count,
+      price_per_app_month,
+      duration_months,
+      start_date,
+      payment_method,
+      payment_reference,
+      payment_notes,
+      payment_status = 'paid'
+    } = req.body;
+    const appCount = parseInt(app_count, 10);
+    const monthlyPrice = Number(price_per_app_month);
+    const durationMonths = parseInt(duration_months, 10);
+    const startDate = start_date || new Date().toISOString().slice(0, 10);
+
+    if (!Number.isInteger(appCount) || appCount < 1) {
+      throw new ValidationError('app_count must be a positive integer');
+    }
+    if (!Number.isFinite(monthlyPrice) || monthlyPrice < 0) {
+      throw new ValidationError('price_per_app_month must be a non-negative number');
+    }
+    if (!ALLOWED_SUBSCRIPTION_DURATIONS.includes(durationMonths)) {
+      throw new ValidationError('duration_months must be 1, 3, 6, 9, or 12');
+    }
+    if (!['paid', 'pending', 'failed'].includes(payment_status)) {
+      throw new ValidationError('payment_status must be paid, pending, or failed');
+    }
+
+    const endDate = calculateSubscriptionEndDate(startDate, durationMonths);
+    const totalAmount = (appCount * monthlyPrice * durationMonths).toFixed(2);
+
+    const subscription = await executeTransaction(pool, async (client) => {
+      const tenantResult = await client.query('SELECT id FROM tenants WHERE id = $1', [tenantId]);
+      if (tenantResult.rows.length === 0) {
+        throw new NotFoundError('Tenant');
+      }
+
+      await client.query(
+        `UPDATE tenant_subscriptions
+         SET status = 'expired', updated_at = CURRENT_TIMESTAMP
+         WHERE tenant_id = $1 AND status = 'active'`,
+        [tenantId]
+      );
+
+      const result = await client.query(
+        `INSERT INTO tenant_subscriptions
+          (tenant_id, app_count, price_per_app_month, duration_months, total_amount,
+           start_date, end_date, status, payment_status, payment_method,
+           payment_reference, payment_notes, paid_at, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', $8, $9, $10, $11, $12, $13)
+         RETURNING *`,
+        [
+          tenantId,
+          appCount,
+          monthlyPrice,
+          durationMonths,
+          totalAmount,
+          startDate,
+          endDate,
+          payment_status,
+          payment_method || null,
+          payment_reference || null,
+          payment_notes || null,
+          payment_status === 'paid' ? new Date() : null,
+          req.user.id
+        ]
+      );
+
+      await client.query(
+        `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, ip_address, user_agent)
+         VALUES ($1, 'CREATE_TENANT_SUBSCRIPTION', 'TENANT_SUBSCRIPTION', $2, $3, $4)`,
+        [req.user.id, result.rows[0].id, req.ip, req.get('user-agent')]
+      );
+
+      return result.rows[0];
+    });
+
+    return sendCreated(res, { subscription }, 'Subscription recorded successfully');
   });
 
   /**
@@ -221,6 +375,18 @@ class TenantController {
 
     const tenant = result.rows[0];
     tenant.status = tenant.is_active ? 'active' : 'inactive';
+
+    const subscriptionResult = await executeQuery(
+      pool,
+      `SELECT * FROM tenant_subscriptions
+       WHERE tenant_id = $1
+       ORDER BY start_date DESC, created_at DESC`,
+      [id]
+    );
+    tenant.subscription_history = subscriptionResult.rows;
+    tenant.current_subscription = subscriptionResult.rows.find(
+      subscription => subscription.status === 'active' && new Date(subscription.end_date) > new Date()
+    ) || subscriptionResult.rows[0] || null;
 
     return sendSuccess(res, { tenant });
   });
