@@ -11,3 +11,4 @@ build/
 .token.json
 credential.json
 token.json
+image-upload-service-account.json

@@ -5,6 +5,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const multer = require('multer');
 const db = require('./config/database');
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -52,6 +53,23 @@ const tenantAdminRoutes = require('./modules/tenant-admin/routes/index');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 200 * 1024,
+    files: 10,
+  },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new Error('Only JPEG, PNG, and WEBP files are allowed.'));
+    }
+    cb(null, true);
+  },
+});
+
+app.locals.upload = upload;
 
 // ============================================
 // Middleware

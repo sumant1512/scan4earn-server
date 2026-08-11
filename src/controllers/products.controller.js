@@ -5,6 +5,7 @@
 
 const db = require('../config/database');
 const attributeValidator = require('../services/attributeValidator.service');
+const { buildSafeDestination, uploadBufferToGcs } = require('../services/gcsStorage.service');
 const { asyncHandler } = require('../modules/common/middleware/errorHandler.middleware');
 const {
   ValidationError,
@@ -171,7 +172,11 @@ exports.createProduct = asyncHandler(async (req, res) => {
     tag_ids = []
   } = req.body;
 
-  validateRequiredFields(req.body, ['product_name', 'thumbnail_url', 'verification_app_id']);
+  const uploadedPrimaryImage = req.files?.image?.[0] || null;
+  const uploadedThumbnail = req.files?.thumbnail?.[0] || null;
+  const uploadedGallery = req.files?.product_images || [];
+
+  validateRequiredFields(req.body, ['product_name', 'verification_app_id']);
 
   const result = await executeTransaction(db, async (client) => {
     // Get currency from verification app
@@ -195,6 +200,41 @@ exports.createProduct = asyncHandler(async (req, res) => {
       }
     }
 
+    let finalImageUrl = image_url || null;
+    let finalThumbnailUrl = thumbnail_url || null;
+    let finalProductImages = Array.isArray(product_images) ? product_images : [];
+
+    if (uploadedPrimaryImage) {
+      const destination = buildSafeDestination(`tenants/${tenantId}/products/${verification_app_id}/primary`, uploadedPrimaryImage.originalname);
+      const uploadResult = await uploadBufferToGcs(uploadedPrimaryImage.buffer, {
+        destination,
+        contentType: uploadedPrimaryImage.mimetype,
+      });
+      finalImageUrl = uploadResult.url;
+    }
+
+    if (uploadedThumbnail) {
+      const destination = buildSafeDestination(`tenants/${tenantId}/products/${verification_app_id}/thumbnail`, uploadedThumbnail.originalname);
+      const uploadResult = await uploadBufferToGcs(uploadedThumbnail.buffer, {
+        destination,
+        contentType: uploadedThumbnail.mimetype,
+      });
+      finalThumbnailUrl = uploadResult.url;
+    }
+
+    if (uploadedGallery.length > 0) {
+      const uploadedPaths = [];
+      for (const file of uploadedGallery) {
+        const destination = buildSafeDestination(`tenants/${tenantId}/products/${verification_app_id}/gallery`, file.originalname);
+        const uploadResult = await uploadBufferToGcs(file.buffer, {
+          destination,
+          contentType: file.mimetype,
+        });
+        uploadedPaths.push(uploadResult.url);
+      }
+      finalProductImages = [...finalProductImages, ...uploadedPaths];
+    }
+
     // Insert product with attributes in JSONB column
     const productResult = await client.query(
       `INSERT INTO products
@@ -206,9 +246,9 @@ exports.createProduct = asyncHandler(async (req, res) => {
         product_name,
         price || null,
         currency,
-        image_url || null,
-        thumbnail_url,
-        JSON.stringify(product_images || []),
+        finalImageUrl,
+        finalThumbnailUrl,
+        JSON.stringify(finalProductImages || []),
         verification_app_id,
         template_id || null,
         JSON.stringify(attributes || {})
@@ -275,6 +315,10 @@ exports.updateProduct = asyncHandler(async (req, res) => {
     tag_ids
   } = req.body;
 
+  const uploadedPrimaryImage = req.files?.image?.[0] || null;
+  const uploadedThumbnail = req.files?.thumbnail?.[0] || null;
+  const uploadedGallery = req.files?.product_images || [];
+
   const result = await executeTransaction(db, async (client) => {
     // Check if product exists and belongs to tenant
     const existing = await client.query(
@@ -295,6 +339,41 @@ exports.updateProduct = asyncHandler(async (req, res) => {
       }
     }
 
+    let finalImageUrl = image_url;
+    let finalThumbnailUrl = thumbnail_url;
+    let finalProductImages = product_images;
+
+    if (uploadedPrimaryImage) {
+      const destination = buildSafeDestination(`tenants/${tenantId}/products/${existing.rows[0].verification_app_id}/primary`, uploadedPrimaryImage.originalname);
+      const uploadResult = await uploadBufferToGcs(uploadedPrimaryImage.buffer, {
+        destination,
+        contentType: uploadedPrimaryImage.mimetype,
+      });
+      finalImageUrl = uploadResult.url;
+    }
+
+    if (uploadedThumbnail) {
+      const destination = buildSafeDestination(`tenants/${tenantId}/products/${existing.rows[0].verification_app_id}/thumbnail`, uploadedThumbnail.originalname);
+      const uploadResult = await uploadBufferToGcs(uploadedThumbnail.buffer, {
+        destination,
+        contentType: uploadedThumbnail.mimetype,
+      });
+      finalThumbnailUrl = uploadResult.url;
+    }
+
+    if (uploadedGallery.length > 0) {
+      const uploadedPaths = [];
+      for (const file of uploadedGallery) {
+        const destination = buildSafeDestination(`tenants/${tenantId}/products/${existing.rows[0].verification_app_id}/gallery`, file.originalname);
+        const uploadResult = await uploadBufferToGcs(file.buffer, {
+          destination,
+          contentType: file.mimetype,
+        });
+        uploadedPaths.push(uploadResult.url);
+      }
+      finalProductImages = [...(Array.isArray(product_images) ? product_images : []), ...uploadedPaths];
+    }
+
     // Update product with attributes in JSONB column (currency is not updatable - it comes from verification app)
     await client.query(
       `UPDATE products
@@ -312,9 +391,9 @@ exports.updateProduct = asyncHandler(async (req, res) => {
       [
         product_name,
         price,
-        image_url,
-        thumbnail_url,
-        product_images ? JSON.stringify(product_images) : null,
+        finalImageUrl,
+        finalThumbnailUrl,
+        finalProductImages ? JSON.stringify(finalProductImages) : null,
         is_active,
         template_id,
         attributes ? JSON.stringify(attributes) : null,

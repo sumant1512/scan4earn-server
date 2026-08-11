@@ -9,6 +9,7 @@ const db = require('../config/database');
 const crypto = require('crypto');
 const creditCalculator = require('../services/credit-calculator.service');
 const couponGenerator = require('../services/coupon-generator.service');
+const { buildSafeDestination, uploadBufferToGcs } = require('../services/gcsStorage.service');
 const { asyncHandler } = require('../modules/common/middleware/errorHandler.middleware');
 const {
   AppError,
@@ -36,7 +37,6 @@ exports.createVerificationApp = asyncHandler(async (req, res) => {
   const {
     app_name,
     description,
-    logo,
     primary_color,
     secondary_color,
     welcome_message,
@@ -46,6 +46,8 @@ exports.createVerificationApp = asyncHandler(async (req, res) => {
     template_id,
     currency
   } = req.body;
+
+  const uploadedLogo = req.file || (req.body?.logo && req.body.logo.buffer ? req.body.logo : null) || (req.body?.logo_url && req.body.logo_url.buffer ? req.body.logo_url : null);
 
   validateRequiredFields(req.body, ['app_name', 'template_id']);
 
@@ -100,21 +102,41 @@ exports.createVerificationApp = asyncHandler(async (req, res) => {
   // Generate API key
   const apiKey = crypto.randomBytes(32).toString('hex');
 
-  const result = await db.query(
+  const createdApp = await db.query(
     `INSERT INTO verification_apps
-     (tenant_id, app_name, code, api_key, description, logo, primary_color, secondary_color,
+     (tenant_id, app_name, code, api_key, description, logo_url, primary_color, secondary_color,
       welcome_message, scan_success_message, scan_failure_message, post_scan_redirect_url, template_id, currency, is_active)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true)
      RETURNING *`,
-    [tenantId, app_name, code, apiKey, description, logo, primary_color, secondary_color,
+    [tenantId, app_name, code, apiKey, description, null, primary_color, secondary_color,
      welcome_message || 'Welcome! Scan your QR code to redeem your reward.',
      scan_success_message || 'Success! Your coupon has been verified.',
      scan_failure_message || 'Sorry, this coupon is not valid.',
      post_scan_redirect_url, template_id, currency || 'INR']
   );
 
+  let appRecord = createdApp.rows[0];
+
+  if (uploadedLogo) {
+    const destination = buildSafeDestination(`tenants/${tenantId}/verification-apps/${appRecord.id}/logo`, uploadedLogo.originalname);
+    const uploadResult = await uploadBufferToGcs(uploadedLogo.buffer, {
+      destination,
+      contentType: uploadedLogo.mimetype,
+    });
+
+    const updatedApp = await db.query(
+      `UPDATE verification_apps
+       SET logo_url = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2 AND tenant_id = $3
+       RETURNING *`,
+      [uploadResult.url, appRecord.id, tenantId]
+    );
+
+    appRecord = updatedApp.rows[0];
+  }
+
   return sendCreated(res, {
-    app: result.rows[0],
+    app: appRecord,
     important: 'Please save the API key. It will not be shown again in full.'
   }, 'Verification app created successfully');
 });
@@ -132,7 +154,7 @@ exports.getVerificationApps = asyncHandler(async (req, res) => {
               va.app_name,
               va.code,
               va.description,
-              va.logo,
+              va.logo_url,
               va.primary_color,
               va.secondary_color,
               va.welcome_message,
@@ -180,7 +202,7 @@ exports.getVerificationAppById = asyncHandler(async (req, res) => {
             va.app_name,
             va.code,
             va.description,
-            va.logo,
+            va.logo_url,
             va.primary_color,
             va.secondary_color,
             va.welcome_message,
@@ -220,12 +242,28 @@ exports.updateVerificationApp = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const tenantId = req.user.tenant_id;
   const updates = req.body;
+  const uploadedLogo = req.file || (req.body?.logo && req.body.logo.buffer ? req.body.logo : null) || (req.body?.logo_url && req.body.logo_url.buffer ? req.body.logo_url : null);
+
+  let finalLogoUrl = typeof updates.logo_url === 'string' ? updates.logo_url : null;
+
+  if (uploadedLogo) {
+    if (typeof uploadedLogo === 'string') {
+      finalLogoUrl = uploadedLogo;
+    } else if (uploadedLogo.buffer && uploadedLogo.mimetype) {
+      const destination = buildSafeDestination(`tenants/${tenantId}/verification-apps/${id}/logo`, uploadedLogo.originalname);
+      const uploadResult = await uploadBufferToGcs(uploadedLogo.buffer, {
+        destination,
+        contentType: uploadedLogo.mimetype,
+      });
+      finalLogoUrl = uploadResult.url;
+    }
+  }
 
   const result = await db.query(
     `UPDATE verification_apps
      SET app_name = COALESCE($1, app_name),
          description = COALESCE($2, description),
-         logo = COALESCE($3, logo),
+         logo_url = COALESCE($3, logo_url),
          primary_color = COALESCE($4, primary_color),
          secondary_color = COALESCE($5, secondary_color),
          welcome_message = COALESCE($6, welcome_message),
@@ -237,7 +275,7 @@ exports.updateVerificationApp = asyncHandler(async (req, res) => {
          updated_at = CURRENT_TIMESTAMP
      WHERE id = $12 AND tenant_id = $13
      RETURNING *`,
-    [updates.app_name, updates.description, updates.logo, updates.primary_color,
+    [updates.app_name, updates.description, finalLogoUrl, updates.primary_color,
      updates.secondary_color, updates.welcome_message, updates.scan_success_message,
      updates.scan_failure_message, updates.post_scan_redirect_url,
      updates.template_id, updates.currency, id, tenantId]
