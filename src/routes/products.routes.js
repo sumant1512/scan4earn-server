@@ -8,6 +8,8 @@ const router = express.Router();
 const productsController = require('../controllers/products.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 
+const upload = require('../utils/upload.middleware');
+
 // Middleware to check tenant role
 const requireTenant = (req, res, next) => {
   // Explicitly block super admin
@@ -40,11 +42,25 @@ router.get('/:id/attributes', authMiddleware.requirePermission('view_products'),
 // GET /api/products/:id - Get single product
 router.get('/:id', authMiddleware.requirePermission('view_products'), productsController.getProduct);
 
-// POST /api/products - Create product
-router.post('/', authMiddleware.requirePermission('create_product'), productsController.createProduct);
+// POST /api/products - Create product with optional multipart images
+router.post('/',
+  authMiddleware.requirePermission('create_product'),
+  upload.fields([
+    { name: 'thumbnail', maxCount: 1 },
+    { name: 'product_images', maxCount: 10 },
+  ]),
+  productsController.createProduct
+);
 
 // PUT /api/products/:id - Update product
-router.put('/:id', authMiddleware.requirePermission('edit_product'), productsController.updateProduct);
+router.put('/:id',
+  authMiddleware.requirePermission('edit_product'),
+  upload.fields([
+    { name: 'thumbnail', maxCount: 1 },
+    { name: 'product_images', maxCount: 10 },
+  ]),
+  productsController.updateProduct
+);
 
 // DELETE /api/products/:id - Delete product
 router.delete('/:id', authMiddleware.requirePermission('delete_product'), productsController.deleteProduct);

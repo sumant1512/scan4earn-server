@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const rewardsController = require('../controllers/rewards.controller');
 const authMiddleware = require('../middleware/auth.middleware');
+const upload = require('../utils/upload.middleware');
 
 // Middleware to check tenant role
 const requireTenant = (req, res, next) => {
@@ -33,10 +34,20 @@ router.post('/scans/verify', rewardsController.verifyScan);
 router.use(authMiddleware.authenticate);
 
 // Verification app routes (Tenant)
-router.post('/verification-apps', requireTenant, authMiddleware.requirePermission('create_app'), rewardsController.createVerificationApp);
+router.post('/verification-apps',
+  requireTenant,
+  authMiddleware.requirePermission('create_app'),
+  upload.single('logo'),
+  rewardsController.createVerificationApp
+);
 router.get('/verification-apps', requireTenant, authMiddleware.requirePermission('view_apps'), rewardsController.getVerificationApps);
 router.get('/verification-apps/:id', requireTenant, authMiddleware.requirePermission('view_apps'), rewardsController.getVerificationAppById);
-router.put('/verification-apps/:id', requireTenant, authMiddleware.requirePermission('edit_app'), rewardsController.updateVerificationApp);
+router.put('/verification-apps/:id',
+  requireTenant,
+  authMiddleware.requirePermission('edit_app'),
+  upload.single('logo'),
+  rewardsController.updateVerificationApp
+);
 router.delete('/verification-apps/:id', requireTenant, authMiddleware.requirePermission('delete_app'), rewardsController.deleteVerificationApp);
 router.post('/verification-apps/:id/regenerate-key', requireTenant, authMiddleware.requirePermission('edit_app'), rewardsController.regenerateApiKey);
 router.patch('/verification-apps/:id/toggle-status', requireTenant, authMiddleware.requirePermission('edit_app'), rewardsController.toggleAppStatus);

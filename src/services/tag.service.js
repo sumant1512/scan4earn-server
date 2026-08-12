@@ -53,13 +53,6 @@ class TagService {
       query += ` ORDER BY t.name ASC`;
 
       const result = await db.query(query, params);
-
-      console.log("Query returned rows:", result.rows.length);
-      if (result.rows.length > 0) {
-        console.log("Sample row:", result.rows[0]);
-      }
-      console.log("========================");
-
       return result.rows;
     } catch (error) {
       console.error("Error getting tags:", error);
