@@ -39,7 +39,7 @@ const listProducts = async (tenantId, { page = 1, limit = 10, search = null, sor
       p.product_name as title,
       p.description,
       p.price,
-      p.image_url as image,
+      COALESCE(p.thumbnail_url, p.product_images->>0) as image,
       COALESCE(
         (
           SELECT json_agg(json_build_object('id', t.id, 'name', t.name, 'icon', t.icon))
@@ -71,7 +71,7 @@ const getProductById = async (tenantId, productId) => {
       p.product_name as title,
       p.description,
       p.price,
-      p.image_url as image,
+      COALESCE(p.thumbnail_url, p.product_images->>0) as image,
       p.attributes,
       p.template_id,
       COALESCE(

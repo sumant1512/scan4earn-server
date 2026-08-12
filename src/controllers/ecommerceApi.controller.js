@@ -48,7 +48,8 @@ exports.getProducts = asyncHandler(async (req, res) => {
       p.description,
       p.price,
       p.currency,
-      p.image_url,
+      p.thumbnail_url,
+      p.product_images,
       p.is_active,
       p.created_at,
       p.updated_at,
@@ -104,7 +105,7 @@ exports.getProducts = asyncHandler(async (req, res) => {
   }
 
   query += `
-    GROUP BY p.id, p.product_name, p.product_sku, p.description, p.price, p.currency, p.image_url, p.is_active, p.created_at, p.updated_at, pt.id, pt.template_name
+    GROUP BY p.id, p.product_name, p.product_sku, p.description, p.price, p.currency, p.thumbnail_url, p.product_images, p.is_active, p.created_at, p.updated_at, pt.id, pt.template_name
     ORDER BY p.updated_at DESC
     LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
   `;
@@ -173,7 +174,8 @@ exports.getProduct = asyncHandler(async (req, res) => {
       p.description,
       p.price,
       p.currency,
-      p.image_url,
+      p.thumbnail_url,
+      p.product_images,
       p.is_active,
       p.created_at,
       p.updated_at,
@@ -197,7 +199,7 @@ exports.getProduct = asyncHandler(async (req, res) => {
     LEFT JOIN product_templates pt ON p.template_id = pt.id
     LEFT JOIN product_attribute_values pav ON p.id = pav.product_id
     WHERE p.id = $1 AND p.tenant_id = $2 AND p.verification_app_id = $3
-    GROUP BY p.id, p.product_name, p.product_sku, p.description, p.price, p.currency, p.image_url, p.is_active, p.created_at, p.updated_at, pt.id, pt.template_name
+    GROUP BY p.id, p.product_name, p.product_sku, p.description, p.price, p.currency, p.thumbnail_url, p.product_images, p.is_active, p.created_at, p.updated_at, pt.id, pt.template_name
   `, [id, tenantId, verificationAppId]);
 
   if (result.rows.length === 0) {
@@ -246,7 +248,6 @@ exports.syncProducts = asyncHandler(async (req, res) => {
           description,
           price,
           currency = 'USD',
-          image_url,
           is_active = true,
           template_id,
           attributes = {}
@@ -290,17 +291,15 @@ exports.syncProducts = asyncHandler(async (req, res) => {
                 description = $2,
                 price = $3,
                 currency = $4,
-                image_url = $5,
-                is_active = $6,
-                template_id = $7,
+                is_active = $5,
+                template_id = $6,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = $8
+            WHERE id = $7
           `, [
             product_name,
             description || null,
             price || null,
             currency,
-            image_url || null,
             is_active,
             template_id || null,
             productId
@@ -328,9 +327,9 @@ exports.syncProducts = asyncHandler(async (req, res) => {
           const productResult = await client.query(`
             INSERT INTO products (
               tenant_id, product_name, product_sku, description,
-              price, currency, image_url, is_active,
+              price, currency, is_active,
               verification_app_id, template_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING id
           `, [
             tenantId,
@@ -339,7 +338,6 @@ exports.syncProducts = asyncHandler(async (req, res) => {
             description || null,
             price || null,
             currency,
-            image_url || null,
             is_active,
             verificationAppId,
             template_id || null
@@ -401,7 +399,6 @@ exports.updateProduct = asyncHandler(async (req, res) => {
     description,
     price,
     currency,
-    image_url,
     is_active,
     template_id,
     attributes
@@ -436,17 +433,15 @@ exports.updateProduct = asyncHandler(async (req, res) => {
           description = COALESCE($2, description),
           price = COALESCE($3, price),
           currency = COALESCE($4, currency),
-          image_url = COALESCE($5, image_url),
-          is_active = COALESCE($6, is_active),
-          template_id = COALESCE($7, template_id),
+          is_active = COALESCE($5, is_active),
+          template_id = COALESCE($6, template_id),
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $8
+      WHERE id = $7
     `, [
       product_name,
       description,
       price,
       currency,
-      image_url,
       is_active,
       template_id,
       id
@@ -579,7 +574,7 @@ async function getCartWithItems(tenantId, verificationAppId, customerRef) {
       ci.product_id,
       p.product_name,
       p.product_sku,
-      p.image_url,
+      p.thumbnail_url,
       p.stock_status,
       ci.quantity,
       p.price,
@@ -1175,7 +1170,7 @@ exports.getWishlist = asyncHandler(async (req, res) => {
       p.product_sku,
       p.price,
       p.currency,
-      p.image_url,
+      p.thumbnail_url,
       p.stock_status,
       p.is_active,
       w.added_at

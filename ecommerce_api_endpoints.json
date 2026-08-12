@@ -55,7 +55,7 @@
       "method": "POST",
       "path": "/api/ecommerce/v1/products/sync",
       "description": "Bulk create/update products from e-commerce platform (max 100).",
-      "body": {"products": [{"product_sku":"string","product_name":"string","description":"string","price":"number","currency":"string","image_url":"string","is_active":"boolean","template_id":"string","attributes":"object"}]},
+      "body": {"products": [{"product_sku":"string","product_name":"string","description":"string","price":"number","currency":"string","is_active":"boolean","template_id":"string","attributes":"object"}]},
       "responses": {"200": "{ data: { summary: {...}, details: {...} } }","400": "Validation errors"}
     },
     {
@@ -64,7 +64,7 @@
       "path": "/api/ecommerce/v1/products/:id",
       "description": "Update a product (partial via COALESCE behaviour in controller).",
       "pathParams": [{"name":"id","type":"integer","required":true}],
-      "body": {"product_name":"string","description":"string","price":"number","currency":"string","image_url":"string","is_active":"boolean","template_id":"string","attributes":"object"},
+      "body": {"product_name":"string","description":"string","price":"number","currency":"string","is_active":"boolean","template_id":"string","attributes":"object"},
       "responses": {"200": "{ data: { product: {...} } }","404": "Product not found"}
     },
     {

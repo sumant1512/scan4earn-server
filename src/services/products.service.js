@@ -27,7 +27,8 @@ class ProductsService {
           p.description,
           p.price,
           p.currency,
-          p.image_url,
+          p.thumbnail_url,
+          p.product_images,
           p.is_active,
           p.created_at,
           p.updated_at,
@@ -130,7 +131,8 @@ class ProductsService {
           p.description,
           p.price,
           p.currency,
-          p.image_url,
+          p.thumbnail_url,
+          p.product_images,
           p.is_active,
           p.created_at,
           p.updated_at,
@@ -186,7 +188,6 @@ class ProductsService {
         description,
         price,
         currency = 'USD',
-        image_url,
         verification_app_id,
         template_id,
         attributes = {},
@@ -220,12 +221,11 @@ class ProductsService {
           description,
           price,
           currency,
-          image_url,
           verification_app_id,
           template_id,
           attributes,
           is_active
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING id, product_name, product_sku, price, currency, template_id, attributes, created_at
       `;
 
@@ -236,7 +236,6 @@ class ProductsService {
         description,
         price,
         currency,
-        image_url,
         verification_app_id,
         template_id,
         JSON.stringify(attributes),
@@ -285,7 +284,6 @@ class ProductsService {
         description,
         price,
         currency,
-        image_url,
         attributes,
         tag_ids,
         is_active
@@ -332,12 +330,6 @@ class ProductsService {
       if (currency !== undefined) {
         updateFields.push(`currency = $${paramIndex}`);
         params.push(currency);
-        paramIndex++;
-      }
-
-      if (image_url !== undefined) {
-        updateFields.push(`image_url = $${paramIndex}`);
-        params.push(image_url);
         paramIndex++;
       }
 

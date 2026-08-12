@@ -102,38 +102,42 @@ exports.createVerificationApp = asyncHandler(async (req, res) => {
   // Generate API key
   const apiKey = crypto.randomBytes(32).toString('hex');
 
-  const createdApp = await db.query(
-    `INSERT INTO verification_apps
-     (tenant_id, app_name, code, api_key, description, logo_url, primary_color, secondary_color,
-      welcome_message, scan_success_message, scan_failure_message, post_scan_redirect_url, template_id, currency, is_active)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true)
-     RETURNING *`,
-    [tenantId, app_name, code, apiKey, description, null, primary_color, secondary_color,
-     welcome_message || 'Welcome! Scan your QR code to redeem your reward.',
-     scan_success_message || 'Success! Your coupon has been verified.',
-     scan_failure_message || 'Sorry, this coupon is not valid.',
-     post_scan_redirect_url, template_id, currency || 'INR']
-  );
-
-  let appRecord = createdApp.rows[0];
-
-  if (uploadedLogo) {
-    const destination = buildSafeDestination(`tenants/${tenantId}/verification-apps/${appRecord.id}/logo`, uploadedLogo.originalname);
-    const uploadResult = await uploadBufferToGcs(uploadedLogo.buffer, {
-      destination,
-      contentType: uploadedLogo.mimetype,
-    });
-
-    const updatedApp = await db.query(
-      `UPDATE verification_apps
-       SET logo_url = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2 AND tenant_id = $3
+  const appRecord = await executeTransaction(db, async (client) => {
+    const createdApp = await client.query(
+      `INSERT INTO verification_apps
+       (tenant_id, app_name, code, api_key, description, logo_url, primary_color, secondary_color,
+        welcome_message, scan_success_message, scan_failure_message, post_scan_redirect_url, template_id, currency, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true)
        RETURNING *`,
-      [uploadResult.url, appRecord.id, tenantId]
+      [tenantId, app_name, code, apiKey, description, null, primary_color, secondary_color,
+        welcome_message || 'Welcome! Scan your QR code to redeem your reward.',
+        scan_success_message || 'Success! Your coupon has been verified.',
+        scan_failure_message || 'Sorry, this coupon is not valid.',
+        post_scan_redirect_url, template_id, currency || 'INR']
     );
 
-    appRecord = updatedApp.rows[0];
-  }
+    let record = createdApp.rows[0];
+
+    if (uploadedLogo) {
+      const destination = buildSafeDestination(`tenants/${tenantId}/verification-apps/${record.id}/logo`, uploadedLogo.originalname);
+      const uploadResult = await uploadBufferToGcs(uploadedLogo.buffer, {
+        destination,
+        contentType: uploadedLogo.mimetype,
+      });
+
+      const updatedApp = await client.query(
+        `UPDATE verification_apps
+         SET logo_url = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2 AND tenant_id = $3
+         RETURNING *`,
+        [uploadResult.publicUrl, record.id, tenantId]
+      );
+
+      record = updatedApp.rows[0];
+    }
+
+    return record;
+  });
 
   return sendCreated(res, {
     app: appRecord,
@@ -223,7 +227,7 @@ exports.getVerificationAppById = asyncHandler(async (req, res) => {
      LEFT JOIN scans s ON c.id = s.coupon_id
      LEFT JOIN product_templates pt ON va.template_id = pt.id
      WHERE va.id = $1 AND va.tenant_id = $2
-     GROUP BY va.id, va.app_name, va.code, va.description, va.logo, va.primary_color, va.secondary_color, va.welcome_message, va.scan_success_message, va.scan_failure_message, va.post_scan_redirect_url, va.is_active, va.tenant_id, va.template_id, va.currency, pt.template_name, va.created_at, va.updated_at`,
+     GROUP BY va.id, va.app_name, va.code, va.description, va.logo_url, va.primary_color, va.secondary_color, va.welcome_message, va.scan_success_message, va.scan_failure_message, va.post_scan_redirect_url, va.is_active, va.tenant_id, va.template_id, va.currency, pt.template_name, va.created_at, va.updated_at`,
     [id, tenantId]
   );
 
@@ -255,7 +259,7 @@ exports.updateVerificationApp = asyncHandler(async (req, res) => {
         destination,
         contentType: uploadedLogo.mimetype,
       });
-      finalLogoUrl = uploadResult.url;
+      finalLogoUrl = uploadResult.publicUrl;
     }
   }
 
@@ -276,16 +280,16 @@ exports.updateVerificationApp = asyncHandler(async (req, res) => {
      WHERE id = $12 AND tenant_id = $13
      RETURNING *`,
     [updates.app_name, updates.description, finalLogoUrl, updates.primary_color,
-     updates.secondary_color, updates.welcome_message, updates.scan_success_message,
-     updates.scan_failure_message, updates.post_scan_redirect_url,
-     updates.template_id, updates.currency, id, tenantId]
+    updates.secondary_color, updates.welcome_message, updates.scan_success_message,
+    updates.scan_failure_message, updates.post_scan_redirect_url,
+    updates.template_id, updates.currency, id, tenantId]
   );
 
   if (result.rows.length === 0) {
     throw new NotFoundError('Verification app');
   }
 
-  return sendSuccess(res, 'Verification app updated successfully');
+  return sendSuccess(res, { app: result.rows[0] }, 'Verification app updated successfully');
 });
 
 /**
@@ -425,11 +429,11 @@ exports.createCoupon = asyncHandler(async (req, res) => {
          VALUES ($1, $2, $3, $4, 'FIXED_AMOUNT', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'draft', $16, $17, $18, $19, $20)
          RETURNING *`,
         [tenantId, verification_app_id, couponCode, couponReference, discount_value,
-         discount_currency || 'USD', buy_quantity, get_quantity, min_purchase_amount,
-         expiry_date, finalTotalUsageLimit, finalPerUserUsageLimit,
-         description, terms, discount_value,
-         maxScansPerCode, batchId, i === 0 ? actualBatchQuantity : null,
-         product_id || null, couponPoints]
+          discount_currency || 'USD', buy_quantity, get_quantity, min_purchase_amount,
+          expiry_date, finalTotalUsageLimit, finalPerUserUsageLimit,
+          description, terms, discount_value,
+          maxScansPerCode, batchId, i === 0 ? actualBatchQuantity : null,
+          product_id || null, couponPoints]
       );
 
       createdCoupons.push(couponResult.rows[0]);
@@ -456,7 +460,7 @@ exports.createCoupon = asyncHandler(async (req, res) => {
         reference_id, reference_type, description, created_by)
        VALUES ($1, 'DEBIT', $2, $3, $4, $5, 'COUPON_CREATION', $6, $7)`,
       [tenantId, costCalculation.total, currentBalance, newBalance,
-       createdCoupons[0].id, transactionDesc, req.user.id]
+        createdCoupons[0].id, transactionDesc, req.user.id]
     );
 
     return {
@@ -588,11 +592,11 @@ exports.createMultiBatchCoupons = asyncHandler(async (req, res) => {
            VALUES ($1, $2, $3, $4, 'FIXED_AMOUNT', $5, $6, $7, $8, $9, $10, $11, 'draft', $12, $13, $14, $15, $16)
            RETURNING *`,
           [tenantId, verificationAppId, couponCode, couponReference, batch.discountAmount,
-           'USD', batch.expiryDate, 1, 1,
-           batch.description, batch.discountAmount,
-           1, batchId,
-           i === 0 ? batch.quantity : null,
-           batch.productId || null, couponPoints]
+            'USD', batch.expiryDate, 1, 1,
+            batch.description, batch.discountAmount,
+            1, batchId,
+            i === 0 ? batch.quantity : null,
+            batch.productId || null, couponPoints]
         );
 
         allCreatedCoupons.push(couponResult.rows[0]);
@@ -618,7 +622,7 @@ exports.createMultiBatchCoupons = asyncHandler(async (req, res) => {
         reference_id, reference_type, description, created_by)
        VALUES ($1, 'DEBIT', $2, $3, $4, $5, 'COUPON_CREATION', $6, $7)`,
       [tenantId, totalCost, currentBalance, newBalance,
-       allCreatedCoupons[0].id, transactionDesc, req.user.id]
+        allCreatedCoupons[0].id, transactionDesc, req.user.id]
     );
 
     return { allCreatedCoupons, totalCost, newBalance };
@@ -930,7 +934,7 @@ exports.verifyScan = asyncHandler(async (req, res) => {
      (coupon_id, tenant_id, scan_status, location_lat, location_lng, device_info, user_agent, ip_address)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [coupon.id, coupon.tenant_id, scan_status, location_lat, location_lng,
-     device_info, device_info, ip_address]
+      device_info, device_info, ip_address]
   );
 
   // If successful, increment usage count and mark as used

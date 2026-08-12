@@ -164,7 +164,6 @@ exports.createProduct = asyncHandler(async (req, res) => {
     product_name,
     verification_app_id,
     price,
-    image_url,
     thumbnail_url,
     product_images = [],
     template_id,
@@ -172,7 +171,6 @@ exports.createProduct = asyncHandler(async (req, res) => {
     tag_ids = []
   } = req.body;
 
-  const uploadedPrimaryImage = req.files?.image?.[0] || null;
   const uploadedThumbnail = req.files?.thumbnail?.[0] || null;
   const uploadedGallery = req.files?.product_images || [];
 
@@ -194,43 +192,32 @@ exports.createProduct = asyncHandler(async (req, res) => {
     // Validate attributes if template_id is provided
     if (template_id) {
       const validation = await attributeValidator.validateAttributes(template_id, attributes);
-      console.log('Validation result for template_id:', template_id, 'attributes:', attributes, 'result:', validation);
       if (!validation.valid) {
         throw new ValidationError('Attribute validation failed', 'validation_failed', { validation_errors: validation.errors });
       }
     }
 
-    let finalImageUrl = image_url || null;
     let finalThumbnailUrl = thumbnail_url || null;
     let finalProductImages = Array.isArray(product_images) ? product_images : [];
 
-    if (uploadedPrimaryImage) {
-      const destination = buildSafeDestination(`tenants/${tenantId}/products/${verification_app_id}/primary`, uploadedPrimaryImage.originalname);
-      const uploadResult = await uploadBufferToGcs(uploadedPrimaryImage.buffer, {
-        destination,
-        contentType: uploadedPrimaryImage.mimetype,
-      });
-      finalImageUrl = uploadResult.url;
-    }
-
     if (uploadedThumbnail) {
-      const destination = buildSafeDestination(`tenants/${tenantId}/products/${verification_app_id}/thumbnail`, uploadedThumbnail.originalname);
+      const destination = buildSafeDestination(`tenants/${tenantId}/verification-apps/${verification_app_id}/products/thumbnail`, uploadedThumbnail.originalname);
       const uploadResult = await uploadBufferToGcs(uploadedThumbnail.buffer, {
         destination,
         contentType: uploadedThumbnail.mimetype,
       });
-      finalThumbnailUrl = uploadResult.url;
+      finalThumbnailUrl = uploadResult.publicUrl;
     }
 
     if (uploadedGallery.length > 0) {
       const uploadedPaths = [];
       for (const file of uploadedGallery) {
-        const destination = buildSafeDestination(`tenants/${tenantId}/products/${verification_app_id}/gallery`, file.originalname);
+        const destination = buildSafeDestination(`tenants/${tenantId}/verification-apps/${verification_app_id}/products/gallery`, file.originalname);
         const uploadResult = await uploadBufferToGcs(file.buffer, {
           destination,
           contentType: file.mimetype,
         });
-        uploadedPaths.push(uploadResult.url);
+        uploadedPaths.push(uploadResult.publicUrl);
       }
       finalProductImages = [...finalProductImages, ...uploadedPaths];
     }
@@ -238,15 +225,14 @@ exports.createProduct = asyncHandler(async (req, res) => {
     // Insert product with attributes in JSONB column
     const productResult = await client.query(
       `INSERT INTO products
-       (tenant_id, product_name, price, currency, image_url, thumbnail_url, product_images, verification_app_id, template_id, attributes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       (tenant_id, product_name, price, currency, thumbnail_url, product_images, verification_app_id, template_id, attributes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         tenantId,
         product_name,
         price || null,
         currency,
-        finalImageUrl,
         finalThumbnailUrl,
         JSON.stringify(finalProductImages || []),
         verification_app_id,
@@ -258,14 +244,20 @@ exports.createProduct = asyncHandler(async (req, res) => {
     const productId = productResult.rows[0].id;
 
     // Insert product tags if provided
-    if (tag_ids && tag_ids.length > 0) {
-      const tagValues = tag_ids.map((tagId, index) =>
+    // if (tag_ids && tag_ids.length > 0) {
+    //   const tagValues = tag_ids.map((tagId, index) =>
+    const parsedTagIds = Array.isArray(tag_ids)
+      ? tag_ids
+      : typeof tag_ids === 'string' ? JSON.parse(tag_ids) : [];
+
+    if (parsedTagIds.length > 0) {
+      const tagValues = parsedTagIds.map((tagId, index) =>
         `($1, $${index + 2}::uuid)`
       ).join(', ');
 
       await client.query(
         `INSERT INTO product_tags (product_id, tag_id) VALUES ${tagValues}`,
-        [productId, ...tag_ids]
+        [productId, ...parsedTagIds]
       );
     }
 
@@ -306,7 +298,6 @@ exports.updateProduct = asyncHandler(async (req, res) => {
   const {
     product_name,
     price,
-    image_url,
     thumbnail_url,
     product_images,
     is_active,
@@ -315,7 +306,6 @@ exports.updateProduct = asyncHandler(async (req, res) => {
     tag_ids
   } = req.body;
 
-  const uploadedPrimaryImage = req.files?.image?.[0] || null;
   const uploadedThumbnail = req.files?.thumbnail?.[0] || null;
   const uploadedGallery = req.files?.product_images || [];
 
@@ -339,37 +329,27 @@ exports.updateProduct = asyncHandler(async (req, res) => {
       }
     }
 
-    let finalImageUrl = image_url;
     let finalThumbnailUrl = thumbnail_url;
     let finalProductImages = product_images;
 
-    if (uploadedPrimaryImage) {
-      const destination = buildSafeDestination(`tenants/${tenantId}/products/${existing.rows[0].verification_app_id}/primary`, uploadedPrimaryImage.originalname);
-      const uploadResult = await uploadBufferToGcs(uploadedPrimaryImage.buffer, {
-        destination,
-        contentType: uploadedPrimaryImage.mimetype,
-      });
-      finalImageUrl = uploadResult.url;
-    }
-
     if (uploadedThumbnail) {
-      const destination = buildSafeDestination(`tenants/${tenantId}/products/${existing.rows[0].verification_app_id}/thumbnail`, uploadedThumbnail.originalname);
+      const destination = buildSafeDestination(`tenants/${tenantId}/verification-apps/${existing.rows[0].verification_app_id}/products/thumbnail`, uploadedThumbnail.originalname);
       const uploadResult = await uploadBufferToGcs(uploadedThumbnail.buffer, {
         destination,
         contentType: uploadedThumbnail.mimetype,
       });
-      finalThumbnailUrl = uploadResult.url;
+      finalThumbnailUrl = uploadResult.publicUrl;
     }
 
     if (uploadedGallery.length > 0) {
       const uploadedPaths = [];
       for (const file of uploadedGallery) {
-        const destination = buildSafeDestination(`tenants/${tenantId}/products/${existing.rows[0].verification_app_id}/gallery`, file.originalname);
+        const destination = buildSafeDestination(`tenants/${tenantId}/verification-apps/${existing.rows[0].verification_app_id}/products/gallery`, file.originalname);
         const uploadResult = await uploadBufferToGcs(file.buffer, {
           destination,
           contentType: file.mimetype,
         });
-        uploadedPaths.push(uploadResult.url);
+        uploadedPaths.push(uploadResult.publicUrl);
       }
       finalProductImages = [...(Array.isArray(product_images) ? product_images : []), ...uploadedPaths];
     }
@@ -379,19 +359,17 @@ exports.updateProduct = asyncHandler(async (req, res) => {
       `UPDATE products
        SET product_name = COALESCE($1, product_name),
            price = COALESCE($2, price),
-           image_url = COALESCE($3, image_url),
-           thumbnail_url = COALESCE($4, thumbnail_url),
-           product_images = COALESCE($5, product_images),
-           is_active = COALESCE($6, is_active),
-           template_id = COALESCE($7, template_id),
-           attributes = COALESCE($8, attributes),
+           thumbnail_url = COALESCE($3, thumbnail_url),
+           product_images = COALESCE($4, product_images),
+           is_active = COALESCE($5, is_active),
+           template_id = COALESCE($6, template_id),
+           attributes = COALESCE($7, attributes),
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $9 AND tenant_id = $10
+       WHERE id = $8 AND tenant_id = $9
        RETURNING *`,
       [
         product_name,
         price,
-        finalImageUrl,
         finalThumbnailUrl,
         finalProductImages ? JSON.stringify(finalProductImages) : null,
         is_active,
@@ -404,18 +382,21 @@ exports.updateProduct = asyncHandler(async (req, res) => {
 
     // Update product tags if provided
     if (tag_ids !== undefined) {
-      // Delete existing tags
+      // Delete existing 
+      const parsedTagIds = Array.isArray(tag_ids)
+        ? tag_ids
+        : typeof tag_ids === 'string' ? JSON.parse(tag_ids) : [];
       await client.query('DELETE FROM product_tags WHERE product_id = $1', [id]);
 
       // Insert new tags if any
-      if (tag_ids && tag_ids.length > 0) {
-        const tagValues = tag_ids.map((tagId, index) =>
+      if (parsedTagIds && parsedTagIds.length > 0) {
+        const tagValues = parsedTagIds.map((tagId, index) =>
           `($1, $${index + 2}::uuid)`
         ).join(', ');
 
         await client.query(
           `INSERT INTO product_tags (product_id, tag_id) VALUES ${tagValues}`,
-          [id, ...tag_ids]
+          [id, ...parsedTagIds]
         );
       }
     }

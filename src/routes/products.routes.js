@@ -46,7 +46,6 @@ router.get('/:id', authMiddleware.requirePermission('view_products'), productsCo
 router.post('/',
   authMiddleware.requirePermission('create_product'),
   upload.fields([
-    { name: 'image', maxCount: 1 },
     { name: 'thumbnail', maxCount: 1 },
     { name: 'product_images', maxCount: 10 },
   ]),
@@ -57,7 +56,6 @@ router.post('/',
 router.put('/:id',
   authMiddleware.requirePermission('edit_product'),
   upload.fields([
-    { name: 'image', maxCount: 1 },
     { name: 'thumbnail', maxCount: 1 },
     { name: 'product_images', maxCount: 10 },
   ]),
