@@ -9,20 +9,19 @@ const express = require('express');
 const router = express.Router();
 const ecommerceApiController = require('../controllers/ecommerceApi.controller');
 const {
-  authenticateEcommerce,
   requireEcommerceFeature,
   requireCustomerRef,
   requireVerificationAppContext
 } = require('../middleware/ecommerceApiKey.middleware');
 const { authenticate } = require('../middleware/appAuth.middleware');
 
-// All routes require E-commerce API key authentication
+// Ecommerce routes use app authentication plus verification-app context.
 
 router.get('/products', requireVerificationAppContext, ecommerceApiController.getProducts);
 router.get('/products/:id', requireVerificationAppContext, ecommerceApiController.getProduct);
 
 router.use(authenticate);
-router.use(authenticateEcommerce);
+router.use(requireVerificationAppContext);
 
 // ── Existing product catalog endpoints (no feature flag required) ──────────────
 
