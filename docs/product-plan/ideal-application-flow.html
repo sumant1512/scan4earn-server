@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scan4Earn — Product Blueprint</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#10151c; --card:#161b22; --card2:#1c2330; --line:#2b3240; --line2:#39414f;
+    --ink:#e6edf3; --muted:#94a0b0; --dim:#6b7687;
+    --blue:#5b9dff;   --blue-bg:#122036;   --blue-br:#28436e;
+    --green:#4cc38a;  --green-bg:#0f2a1e;  --green-br:#1f5540;
+    --orange:#f0a15a; --orange-bg:#32210f; --orange-br:#6b4a1f;
+    --purple:#b794f6; --purple-bg:#241a3c; --purple-br:#4b3a75;
+    --teal:#4fd1dc;   --teal-bg:#0e2a2e;   --teal-br:#1f555c;
+    --red:#f4756c;    --red-bg:#361614;    --red-br:#6e2c27;
+    --yellow:#e8c65a; --yellow-bg:#2e2710; --yellow-br:#635420;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;font-size:15px}
+  a{color:var(--blue)}
+  code{background:#20293a;color:#9fc3ff;border-radius:5px;padding:1px 7px;font-size:12.5px;font-family:ui-monospace,"SF Mono",Menlo,monospace;white-space:nowrap}
+
+  .shell{display:flex;min-height:100vh}
+  aside{width:262px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);padding:26px 18px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .logo{font-size:19px;font-weight:800;letter-spacing:.3px;margin-bottom:2px}
+  .logo span{color:var(--blue)}
+  .logosub{font-size:11.5px;color:var(--dim);margin-bottom:22px;line-height:1.4}
+  nav a{display:block;color:var(--muted);text-decoration:none;font-size:13.5px;padding:8px 12px;border-radius:8px;margin:2px 0;border-left:3px solid transparent}
+  nav a:hover{background:var(--card);color:var(--ink)}
+  nav a.active{background:var(--card2);color:var(--ink);border-left-color:var(--blue);font-weight:600}
+  nav .grp{font-size:10.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);margin:18px 0 6px 12px}
+  nav a.ext{border:1px dashed var(--line2);margin-top:14px;color:var(--red)}
+  main{flex:1;min-width:0;padding:40px 44px 90px;max-width:1120px}
+
+  .page{display:none}
+  .page.active{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  h1{font-size:27px;margin-bottom:4px}
+  .crumb{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  .lead{color:var(--muted);font-size:15px;margin-bottom:26px;max-width:860px}
+  h2{font-size:19px;margin:34px 0 10px;color:var(--ink)}
+  h3{font-size:15.5px;margin:22px 0 8px}
+  p{margin-bottom:10px}
+  .muted{color:var(--muted)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:18px}
+  .card.acc-b{border-left:4px solid var(--blue)} .card.acc-g{border-left:4px solid var(--green)}
+  .card.acc-p{border-left:4px solid var(--purple)} .card.acc-o{border-left:4px solid var(--orange)}
+  .card.acc-r{border-left:4px solid var(--red)} .card.acc-t{border-left:4px solid var(--teal)}
+
+  .box{border-radius:10px;padding:12px 14px;border:1px solid;font-size:13px}
+  .box b{display:block;font-size:13.5px;margin-bottom:3px}
+  .box small{color:var(--muted);display:block;line-height:1.5}
+  .b-blue{background:var(--blue-bg);border-color:var(--blue-br)} .b-green{background:var(--green-bg);border-color:var(--green-br)}
+  .b-orange{background:var(--orange-bg);border-color:var(--orange-br)} .b-purple{background:var(--purple-bg);border-color:var(--purple-br)}
+  .b-teal{background:var(--teal-bg);border-color:var(--teal-br)} .b-red{background:var(--red-bg);border-color:var(--red-br)}
+  .b-plain{background:var(--card2);border-color:var(--line2)}
+
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch}
+  .row>.box{flex:1;min-width:200px}
+  .flow{display:flex;align-items:stretch;flex-wrap:wrap}
+  .flow .box{flex:1;min-width:150px;margin:5px 0}
+  .flow .ar{align-self:center;padding:0 9px;color:var(--dim);font-size:19px;font-weight:700}
+  .down{text-align:center;color:var(--dim);font-size:19px;margin:6px 0}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:var(--card2);font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+  td{background:var(--card)}
+  tr:hover td{background:var(--card2)}
+
+  .tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;border-radius:20px;padding:2px 9px;margin-left:7px;vertical-align:2px;border:1px solid}
+  .tag.new{background:var(--red-bg);color:var(--red);border-color:var(--red-br)}
+  .tag.ok{background:var(--green-bg);color:var(--green);border-color:var(--green-br)}
+  .tag.partial{background:var(--orange-bg);color:var(--orange);border-color:var(--orange-br)}
+  .tag.no{background:var(--red-bg);color:var(--red);border-color:var(--red-br)}
+
+  .note{background:var(--yellow-bg);border:1px solid var(--yellow-br);border-radius:10px;padding:13px 16px;font-size:13.5px;margin:14px 0}
+  .note b{color:var(--yellow)}
+  .rule{background:var(--red-bg);border:1px solid var(--red-br);border-radius:10px;padding:13px 16px;font-size:13.5px;margin:14px 0}
+  .rule b{color:var(--red)}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}
+  .kpi{background:var(--card2);border:1px solid var(--line2);border-radius:10px;padding:11px 13px;font-size:12px}
+  .kpi b{display:block;font-size:18px;color:var(--ink)}
+  .kpi small{color:var(--muted)}
+
+  .tiers{display:grid;grid-template-columns:170px 1fr;gap:12px;margin:8px 0}
+  .tierlabel{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-weight:800;font-size:12px;border-radius:10px;padding:10px;letter-spacing:.5px}
+  .tierlabel small{font-weight:400;color:var(--muted);font-size:11px}
+
+  .pagenav{display:flex;justify-content:space-between;margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font-size:13.5px}
+  .pagenav a{text-decoration:none;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 16px}
+  .pagenav a:hover{background:var(--card2)}
+
+  .toc{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+  .toc a{display:block;text-decoration:none;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;transition:border-color .15s}
+  .toc a:hover{border-color:var(--blue-br);background:var(--card2)}
+  .toc a b{display:block;font-size:14px;margin-bottom:3px;color:var(--blue)}
+  .toc a small{color:var(--muted);font-size:12.5px;line-height:1.45;display:block}
+
+  ul.tight{padding-left:20px;font-size:13.5px}
+  ul.tight li{margin:5px 0;color:var(--muted)}
+  ul.tight li b{color:var(--ink)}
+
+  @media(max-width:900px){
+    .shell{flex-direction:column}
+    aside{width:100%;height:auto;position:static;padding:14px}
+    nav{display:flex;flex-wrap:wrap;gap:4px}
+    nav .grp{display:none}
+    main{padding:24px 18px 70px}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .toc{grid-template-columns:1fr}
+    .tiers{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ==================== SIDEBAR ==================== -->
+<aside>
+  <div class="logo">Scan4Earn <span>Blueprint</span></div>
+  <div class="logosub">A multi-tenant <b>BaaS (Backend-as-a-Service)</b> on <b>scan4earn.com</b> — target architecture &amp; complete product flow (v3 — BaaS framing, billing/credit hierarchy, consumer OTP identity, checkout payments, white-labeled mobile apps)</div>
+  <nav>
+    <a href="#/overview">🏠 Product Overview</a>
+    <div class="grp">Who</div>
+    <a href="#/roles">Roles &amp; Access Levels</a>
+    <div class="grp">Where (URLs &amp; domains)</div>
+    <a href="#/routing-a">Scenario A — scan4earn.com</a>
+    <a href="#/routing-b">Scenarios B1/B2 — Custom Domains</a>
+    <a href="#/resolution">How a Request Resolves</a>
+    <div class="grp">Money</div>
+    <a href="#/billing">Billing &amp; Credit Hierarchy</a>
+    <a href="#/consumer">Consumer Identity, Checkout &amp; Mobile Apps</a>
+    <div class="grp">Example</div>
+    <a href="#/example">Worked Example — Vertex, Pals Paint &amp; Sumukham</a>
+    <div class="grp">What happens</div>
+    <a href="#/flows">Lifecycle Flows</a>
+    <a href="#/dashboards">Dashboards — Who Sees What</a>
+    <div class="grp">Under the hood</div>
+    <a href="#/data">Data Model &amp; Money Loop</a>
+    <a href="#/rules">Production Rulebook</a>
+  </nav>
+</aside>
+
+<main>
+
+<!-- ==================== PAGE: OVERVIEW ==================== -->
+<section class="page" id="overview">
+  <div class="crumb">Start here</div>
+  <h1>What is Scan4Earn?</h1>
+  <p class="lead"><b>Scan4Earn</b> (<code>scan4earn.com</code>) is a multi-tenant <b>Application-provisioning platform</b> — and at its core, a <b>BaaS (Backend-as-a-Service)</b>. Scan4Earn never ships the surface a real consumer shops or scans on; it ships the backend and the APIs behind it. A <b>Tenant</b> is a reseller/agency that onboards other companies as clients and provisions an <b>Application</b> for each one — either an <b>ecommerce store</b> (inventory, products, orders) or a <b>scan-and-earn campaign</b> (QR coupons that pay consumers points or UPI cashback directly — no middlemen). Every Application gets its own API keys, its own branding, its own dashboard, and — this is the rule that shapes the whole product — <b>exactly one owner login: the external business that actually runs it.</b></p>
+
+  <div class="card acc-p">
+    <h3 style="margin-top:0">The BaaS relationship, explicitly</h3>
+    <p style="margin-bottom:8px">The moment a Tenant provisions an Application, Scan4Earn generates the full backend API surface it's entitled to — ecommerce APIs (catalog, cart, checkout, orders, addresses) or scan-and-earn APIs (scan verification, consumer auth, UPI/profile, history, cashback), or both for a <code>HYBRID</code> Application. The Application Owner's job — end to end — is to integrate those APIs into <b>their own consumer-facing surface</b>: a website for ecommerce, and/or a mobile app for scan-and-earn.</p>
+    <p style="margin-bottom:0"><b>The website (or app) is entirely the Application Owner's own.</b> Scan4Earn places zero constraint on its framework, design, or hosting — the relationship is API-only. This is what makes the value proposition real: the business never builds a catalog/inventory engine, an order state machine, payment collection &amp; reconciliation, consumer OTP authentication, fraud-safe coupon/scan logic, or cashback payout mechanics. All of that is Scan4Earn's problem. The business only owns the look, feel, and content of its own site.</p>
+  </div>
+
+  <div class="rule">
+    <b>The one rule that defines this product:</b> Orders, inventory, stock, scans, cashback, coupon burn-down — any real business-operational number — exists <b>only</b> inside an Application's own dashboard. Neither the Super Admin nor the Tenant Admin has a single screen that shows this data, in any form, even aggregated. Their dashboards are provisioning &amp; billing consoles. Full stop.
+  </div>
+
+  <div class="card acc-b">
+    <h3 style="margin-top:0">The whole system in one picture</h3>
+    <div class="tiers">
+      <div class="tierlabel box b-blue">PLATFORM<small>scan4earn.com</small></div>
+      <div class="box b-blue"><b>Super Admin — you, the platform owner</b><small>Logs in at <code>scan4earn.com</code>. Creates Tenants, approves credit requests, records subscriptions. Sees counts and billing — never business data.</small></div>
+    </div>
+    <div class="down">▼ creates</div>
+    <div class="tiers">
+      <div class="tierlabel box b-green">TENANT<small>a reseller/agency</small></div>
+      <div class="box b-green"><b>🏢 Vertex Retail Partners</b><small><code>vertexretail.scan4earn.com</code> — Raj, the Tenant Admin. Onboards client businesses and provisions Applications for them. Bills and supports; never operates.</small></div>
+    </div>
+    <div class="down">▼ provisions Applications for its clients</div>
+    <div class="tiers">
+      <div class="tierlabel box b-purple">APPLICATIONS<small>one owner login each</small></div>
+      <div class="row">
+        <div class="box b-purple"><b>🎯 Paint Coupons</b><small>scan-and-earn · client: Pals Paint · owner: Mr. Pal · QR inside paint buckets, scanned directly by the buyer</small></div>
+        <div class="box b-purple"><b>🛒 Pals Paint Store</b><small>ecommerce · client: Pals Paint · owner: Mr. Pal</small></div>
+        <div class="box b-purple"><b>🛒 Sumukham Store</b><small>ecommerce · client: Sumukham · owner: Meera</small></div>
+        <div class="box b-purple"><b>🎁 Sumukham Rewards</b><small>scan-and-earn · client: Sumukham · owner: Meera</small></div>
+      </div>
+    </div>
+    <div class="down">▼ each Application serves</div>
+    <div class="tiers">
+      <div class="tierlabel box b-orange">THE WORLD</div>
+      <div class="row">
+        <div class="box b-orange"><b>Websites &amp; mobile apps</b><small><code>www.palspaint.com</code> and <code>www.sumukham.com</code> integrate via per-Application API keys</small></div>
+        <div class="box b-orange"><b>Consumers</b><small>scan QR codes → points / cashback, or shop online — directly, no intermediary</small></div>
+      </div>
+    </div>
+    <p class="muted" style="font-size:13px;margin-top:10px">One Tenant, two unrelated client businesses, four Applications — the running example used on every page of this document.</p>
+  </div>
+
+  <h2>How the business makes money — three independent money flows</h2>
+  <div class="card">
+    <div class="flow">
+      <div class="box b-blue"><b>1. Tenant pays Super Admin</b><small>a configurable subscription plan (e.g. ₹2,000/mo for up to 3 Applications) — governs how many Applications the Tenant may provision</small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>2. Application Owner pays Tenant</b><small>a flat per-Application subscription the Tenant sets at creation — unpaid/expired = single-page paywall, everything stops</small></div>
+      <div class="ar">→</div>
+      <div class="box b-orange"><b>3a. Scan-and-earn: credits cascade</b><small>Application pays Tenant for credits, Tenant pays Super Admin for credits — only THEN can coupon batches be created</small></div>
+      <div class="ar">→</div>
+      <div class="box b-teal"><b>3b. Ecommerce: shopper pays Application Owner</b><small>directly, via the Application's own payment-gateway sub-account — Scan4Earn's own funds are never in this path</small></div>
+      <div class="ar">→</div>
+      <div class="box b-purple"><b>4. Application dashboards prove ROI</b><small>to the Application Owner only — Mr. Pal and Meera, never Raj or you</small></div>
+    </div>
+    <p class="muted" style="font-size:13px;margin-top:10px">See <a href="#/billing">Billing &amp; Credit Hierarchy</a> for the full three-layer model, and <a href="#/consumer">Consumer Identity, Checkout &amp; Mobile Apps</a> for how a shopper's payment actually reaches the Application Owner.</p>
+  </div>
+
+  <h2>What can I find where in this document?</h2>
+  <div class="toc">
+    <a href="#/roles"><b>Roles &amp; Access Levels</b><small>Three tiers only. What each can see — and the hard line that keeps business data out of the admin tiers.</small></a>
+    <a href="#/routing-a"><b>Scenario A — scan4earn.com</b><small>The default: how every URL works with no custom domain, using Vertex/Pals Paint's day-one setup.</small></a>
+    <a href="#/routing-b"><b>Scenarios B1/B2 — Customer Domains</b><small>Vertex whitelabels its reseller portal (B1) · Sumukham's Application gets its own domain (B2).</small></a>
+    <a href="#/resolution"><b>How a Request Resolves</b><small>The one middleware that turns any hostname into a tenant + Application context.</small></a>
+    <a href="#/billing"><b>Billing &amp; Credit Hierarchy</b><small>Three billing layers: Tenant plans, per-Application subscriptions, and the scan-and-earn credit cascade — plus the single-page paywall.</small></a>
+    <a href="#/consumer"><b>Consumer Identity, Checkout &amp; Mobile Apps</b><small>One phone+OTP identity, ecommerce checkout payments straight to the Application Owner, the two scan-and-earn channels, and white-labeled mobile apps.</small></a>
+    <a href="#/example"><b>Worked Example</b><small>The complete cast — Vertex, Pals Paint, Sumukham — who opens which URL, what they see, what they can never see.</small></a>
+    <a href="#/flows"><b>Lifecycle Flows</b><small>Tenant onboarding → Application provisioning → ownership handoff → scan-and-earn → ecommerce order.</small></a>
+    <a href="#/dashboards"><b>Dashboards — Who Sees What</b><small>Exactly what appears on each of the three dashboards, and why two of them are administrative-only.</small></a>
+    <a href="#/data"><b>Data Model &amp; Money Loop</b><small>The scoping rule that makes the boundary enforceable at the database and API layer, not just the UI.</small></a>
+    <a href="#/rules"><b>Production Rulebook</b><small>Edge cases a real deployment must survive.</small></a>
+  </div>
+
+  <div class="pagenav"><span></span><a href="#/roles">Next: Roles &amp; Access →</a></div>
+</section>
+
+<!-- ==================== PAGE: ROLES ==================== -->
+<section class="page" id="roles">
+  <div class="crumb">Who</div>
+  <h1>Roles &amp; Access Levels</h1>
+  <p class="lead">Three levels of login, plus the consumer. There is no Dealer role and no App Viewer role — an Application has exactly one owner login, and business data lives nowhere except inside that Application.</p>
+
+  <div class="card">
+    <div class="tiers">
+      <div class="tierlabel box b-blue">LEVEL 1<small>Platform</small></div>
+      <div class="box b-blue"><b>Super Admin — you, the platform owner</b><small>Logs in at <code>scan4earn.com</code>. Creates Tenants and their subdomains · approves credit requests · records subscriptions · manages global feature flags &amp; the template library · sees platform-wide counts (Tenants, Applications, credits sold). <b>Never sees an order, a stock number, a scan, or a cashback amount, from any Application, ever.</b></small></div>
+    </div>
+    <div class="down">▼</div>
+    <div class="tiers">
+      <div class="tierlabel box b-green">LEVEL 2<small>Tenant (reseller)</small></div>
+      <div class="box b-green"><b>Tenant Admin — e.g. Raj (Vertex Retail Partners)</b><small>Logs in at the Tenant's subdomain (or custom domain). Provisions Applications for client businesses, sends the owner-invite, requests credits, sees an <b>administrative list</b> of its Applications: name, client, type, status, subscription tier, credits consumed. <b>Cannot open an Application's operational dashboard</b> — no inventory, no orders, no scans, no campaign controls. That belongs to the client alone.</small></div>
+    </div>
+    <div class="down">▼</div>
+    <div class="tiers">
+      <div class="tierlabel box b-purple">LEVEL 3<small>Application (one owner)</small></div>
+      <div class="box b-purple"><b>Application Owner — e.g. Mr. Pal (Paint Coupons + Pals Paint Store), Meera (Sumukham Store + Sumukham Rewards)</b><small>The external business that bought the Application from its Tenant. <b>Sole login</b> for that Application (or Applications, if the same business owns more than one). Full operational control: for ecommerce — products, inventory, orders, customers, coupons, API keys; for scan-and-earn — batches, codes, scan history, cashback/points ledger, redemptions. Integrates the Application's API into <b>their own website and/or mobile app</b> — fully their own design, framework, hosting; Scan4Earn is API-only behind it (see <a href="#/consumer">Consumer Identity, Checkout &amp; Mobile Apps</a>). Can never see a sibling business's Application, the Tenant portal, or another Tenant.</small></div>
+    </div>
+    <div class="down">▼</div>
+    <div class="tiers">
+      <div class="tierlabel box b-orange">LEVEL 4<small>End user</small></div>
+      <div class="box b-orange"><b>Consumer — e.g. Priya</b><small>One unified phone+OTP identity per Application — no separate sign-up form, ever. Scans QR codes directly (guest, or via the Application's own mobile app) → points or UPI cashback, or shops on a store powered by an ecommerce Application (checkout itself requires the same OTP step). No dealer, no intermediary. Scoped per Application — the same phone number on two different Applications is two unrelated accounts.</small></div>
+    </div>
+  </div>
+
+  <h2>Access matrix — the rule of thumb</h2>
+  <div class="card">
+    <table>
+      <tr><th>Role</th><th>Scope of visibility</th><th>Can never see</th></tr>
+      <tr><td>Super Admin</td><td>Tenant count, Application count &amp; type per Tenant, subscription/billing status, platform credit ledger</td><td><b>Any order, inventory, stock, scan, cashback, or coupon-burn data — anywhere on the platform</b></td></tr>
+      <tr><td>Tenant Admin</td><td>Its own Tenant's Application list — name, client, type, status, owner, credits consumed, subscription tier</td><td><b>Any order, inventory, stock, scan, or cashback data</b> belonging to any Application it provisioned</td></tr>
+      <tr><td>Application Owner</td><td>Full operational data — but only for the Application(s) it owns</td><td>Sibling businesses' Applications, the Tenant portal, other Tenants</td></tr>
+      <tr><td>Consumer</td><td>Their own points/cashback/orders in one Application</td><td>Everything else</td></tr>
+    </table>
+    <p class="muted" style="font-size:13px">Rule of thumb: <b>if a screen shows an order, a stock number, a scan count, or a cashback amount, it belongs inside an Application dashboard — full stop.</b> It is architecturally impossible for that data to reach a Super Admin or Tenant Admin screen, because those roles' APIs never touch Application-grain tables (see <a href="#/data">Data Model</a>).</p>
+  </div>
+
+  <div class="pagenav"><a href="#/overview">← Overview</a><a href="#/routing-a">Next: Scenario A →</a></div>
+</section>
+
+<!-- ==================== PAGE: SCENARIO A ==================== -->
+<section class="page" id="routing-a">
+  <div class="crumb">Where — URLs &amp; domains</div>
+  <h1>Scenario A — Everything on scan4earn.com (the default)</h1>
+  <p class="lead">What every Tenant gets on day one, free, with zero DNS work — and these URLs <b>never stop working</b>, even after an Application maps a custom domain. Rule: <b>the hostname selects the Tenant, the URL path selects the Application — but opening that path still requires being the Application's registered owner.</b> Running example: <b>Vertex Retail Partners</b> (slug <code>vertexretail</code>) on day one, before Pals Paint or Sumukham map their own domains.</p>
+
+  <div class="card acc-g">
+    <h3 style="margin-top:0">The Vertex day-one map</h3>
+    <div class="flow">
+      <div class="box b-blue"><b>scan4earn.com</b><small>Super Admin only. Raj never comes here.</small></div>
+      <div class="ar">·</div>
+      <div class="box b-green"><b>vertexretail.scan4earn.com</b><small>Raj's reseller portal — administrative list of Applications only</small></div>
+      <div class="ar">·</div>
+      <div class="box b-purple"><b>vertexretail.scan4earn.com/apps/…</b><small>each Application's own workspace, by path — owner-only</small></div>
+    </div>
+  </div>
+
+  <h2>The complete route map, level by level</h2>
+  <div class="card">
+    <table>
+      <tr><th style="width:36%">URL</th><th style="width:20%">Who lands here</th><th>What it serves</th></tr>
+      <tr><td><code>scan4earn.com</code></td><td>Super Admin (you)</td><td>Platform portal: <code>/login</code> · <code>/super-admin/dashboard</code> (Tenant &amp; Application counts, billing) · <code>/tenants</code> · <code>/credits</code> · <code>/features</code></td></tr>
+      <tr><td><code>vertexretail.scan4earn.com</code></td><td>Tenant Admin (Raj)</td><td>Reseller portal: <code>/login</code> · <code>/tenant/dashboard</code> (Application list: name, client, type, status, credits — <b>no business metrics</b>) · <code>/applications</code> (provisioning + owner-invite) · <code>/credits</code> · <code>/clients</code></td></tr>
+      <tr><td><code>vertexretail.scan4earn.com/apps/pals-paint-store/</code></td><td><b>Blocked for Raj</b> — 403</td><td>Requires the caller's session to belong to the Application's registered owner (Mr. Pal), not merely the same Tenant</td></tr>
+      <tr><td>same path, opened by Mr. Pal after accepting the owner-invite</td><td>Application Owner (Mr. Pal)</td><td>Full operational workspace: <code>/dashboard</code> · <code>/orders</code> · <code>/inventory</code> · <code>/products</code> · <code>/customers</code> · <code>/coupons</code> · <code>/api-config</code> · <code>/api-docs</code></td></tr>
+      <tr><td><code>vertexretail.scan4earn.com/api/…</code></td><td>Machines</td><td>All APIs on the same host as the portal → no CORS pain. Which Application a call touches is decided by the API key / JWT, not the URL</td></tr>
+      <tr><td><code>scan4earn.com/s/:code</code></td><td>Consumers scanning QR</td><td>Public scan landing. No dealer step — the consumer who buys the product is the one who scans. The code itself knows its Application, so the page auto-loads the right branding</td></tr>
+      <tr><td><code>www.palspaint.com</code> <i>(their own site)</i></td><td>Shoppers</td><td><b>The storefront is never our domain's job.</b> Pals Paint's public website, on their hosting, calls the Application's API with its own key</td></tr>
+    </table>
+  </div>
+
+  <h2>Why paths, not nested subdomains?</h2>
+  <div class="card">
+    <ul class="tight">
+      <li><b>TLS:</b> a wildcard cert <code>*.scan4earn.com</code> does NOT cover <code>store.vertexretail.scan4earn.com</code> — nested subdomains would need per-Tenant wildcard certs.</li>
+      <li><b>Simplicity:</b> the existing subdomain handling only understands one level; paths cost nothing.</li>
+      <li><b>Consistency:</b> the Application selector in the portal header becomes a switcher that just navigates between <code>/apps/:slug/</code> paths — but the switcher only ever lists Applications the logged-in owner actually owns.</li>
+    </ul>
+  </div>
+
+  <div class="pagenav"><a href="#/roles">← Roles</a><a href="#/routing-b">Next: Customer Domains →</a></div>
+</section>
+
+<!-- ==================== PAGE: SCENARIO B ==================== -->
+<section class="page" id="routing-b">
+  <div class="crumb">Where — URLs &amp; domains</div>
+  <h1>Scenarios B1 / B2 — Customer Domains (premium)</h1>
+  <p class="lead">A custom domain is an <b>optional paid alias</b> — one row in a <code>custom_domains</code> table pointing a hostname at a Tenant's reseller portal or at one specific Application. Same database rows, same APIs, same portal code. Both URLs work simultaneously.</p>
+
+  <div class="card acc-p">
+    <h3 style="margin-top:0">B1 — Vertex whitelabels its reseller portal (Tenant-level domain)</h3>
+    <p class="muted" style="font-size:13.5px">Raj doesn't want his clients seeing <code>vertexretail.scan4earn.com</code> — he maps <code>partners.vertexretail.com</code>. One row with <code>application_id = NULL</code>. This is still the <b>administrative</b> portal — no business data lives here regardless of which domain fronts it.</p>
+    <table>
+      <tr><th style="width:44%">Their URL</th><th>Equivalent default URL (still works!)</th></tr>
+      <tr><td><code>partners.vertexretail.com</code> → reseller portal</td><td><code>vertexretail.scan4earn.com</code></td></tr>
+      <tr><td><code>partners.vertexretail.com/applications</code> → provisioning grid</td><td><code>vertexretail.scan4earn.com/applications</code></td></tr>
+    </table>
+  </div>
+
+  <div class="card acc-p">
+    <h3 style="margin-top:0">B2 — An Application Owner maps their own domain (the common case)</h3>
+    <p class="muted" style="font-size:13.5px">Pals Paint and Sumukham are real, separate businesses — each will almost always want its own domain on its own Application, not a path under Vertex's subdomain. One row with <code>application_id = &lt;that Application&gt;</code> maps the hostname to exactly that ONE Application. <b>The host defines the maximum scope</b>: the hostname serves only that Application's routes — sibling Applications and the Tenant portal are unreachable from it.</p>
+    <table>
+      <tr><th style="width:34%">Owner's URL</th><th style="width:34%">Serves</th><th>Fallback URL (always alive)</th></tr>
+      <tr><td><code>store.palspaint.com</code></td><td>Pals Paint Store workspace — Mr. Pal logs in HERE</td><td><code>vertexretail.scan4earn.com/apps/pals-paint-store/</code></td></tr>
+      <tr><td><code>shop.sumukham.com</code></td><td>Sumukham Store workspace — Meera logs in HERE</td><td><code>vertexretail.scan4earn.com/apps/sumukham-store/</code></td></tr>
+      <tr><td><i>Reseller portal untouched</i></td><td colspan="2">Raj still sees the administrative row for each Application at <code>vertexretail.scan4earn.com</code> — an Application domain never hides the Application from its Tenant's provisioning list, but it never exposes operational data there either</td></tr>
+    </table>
+    <p class="muted" style="font-size:13px">Domains don't need any relationship to each other: a reseller portal on <code>partners.vertexretail.com</code>, one Application on <code>store.palspaint.com</code>, another on <code>shop.sumukham.com</code> — all valid simultaneously. Every hostname is an independent row.</p>
+  </div>
+
+  <h2>How a custom domain gets connected (one-time setup)</h2>
+  <div class="card">
+    <div class="flow">
+      <div class="box b-green"><b>1. Owner enters domain</b><small>Meera enters <code>shop.sumukham.com</code> in her Application's settings → a row is created (status <code>pending</code>) + a TXT verification token</small></div>
+      <div class="ar">→</div>
+      <div class="box b-plain"><b>2. Their IT adds 2 DNS records</b><small>TXT (proves ownership) + CNAME → <code>ingress.scan4earn.com</code></small></div>
+      <div class="ar">→</div>
+      <div class="box b-teal"><b>3. We verify + issue TLS</b><small>background job checks DNS → auto-issues the certificate</small></div>
+      <div class="ar">→</div>
+      <div class="box b-purple"><b>4. Active</b><small>row flips to <code>active</code>; emails &amp; links now use the new domain</small></div>
+    </div>
+  </div>
+
+  <div class="pagenav"><a href="#/routing-a">← Scenario A</a><a href="#/resolution">Next: Request Resolution →</a></div>
+</section>
+
+<!-- ==================== PAGE: RESOLUTION ==================== -->
+<section class="page" id="resolution">
+  <div class="crumb">Where — URLs &amp; domains</div>
+  <h1>How a Request Resolves</h1>
+  <p class="lead">One middleware turns ANY hostname into a Tenant + Application context. A second, independent check then confirms the <i>authenticated user</i> is allowed to act on that context — hostname resolution alone is never sufficient authorization.</p>
+
+  <div class="card acc-t">
+    <h3 style="margin-top:0">The resolution ladder — checked in order, first match wins</h3>
+    <div class="flow">
+      <div class="box b-purple"><b>1. Custom domain?</b><small><code>SELECT … FROM custom_domains WHERE hostname = req.hostname AND status='active'</code> → sets <code>tenant_id</code> (+ <code>application_id</code> if Application-scoped)</small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>2. Our subdomain?</b><small>host ends with <code>.scan4earn.com</code> → parse the slug (<code>vertexretail</code>) → look up the Tenant</small></div>
+      <div class="ar">→</div>
+      <div class="box b-blue"><b>3. Root domain?</b><small>host is exactly <code>scan4earn.com</code> → Super Admin context</small></div>
+      <div class="ar">→</div>
+      <div class="box b-red"><b>4. Unknown host</b><small>404 — never guess</small></div>
+    </div>
+  </div>
+
+  <h2>Then the identity check — the part that enforces the ownership rule</h2>
+  <div class="card">
+    <table>
+      <tr><th style="width:36%">Incoming request</th><th>Host resolution</th><th>Identity check</th></tr>
+      <tr><td><code>GET vertexretail.scan4earn.com/apps/sumukham-store/dashboard</code></td><td><code>tenant=vertexretail, application=sumukham-store</code></td><td>Caller's JWT <code>user_id</code> must equal <code>applications.owner_user_id</code> for that Application — Raj's Tenant-Admin JWT fails this check → 403, even though the host resolved fine</td></tr>
+      <tr><td><code>POST shop.sumukham.com/api/ecommerce/v1/orders</code></td><td><code>tenant=vertexretail, application=sumukham-store</code> (app-scoped custom domain)</td><td>API-key based — the key itself is minted for this Application only</td></tr>
+      <tr><td><code>GET vertexretail.scan4earn.com/tenant/dashboard</code></td><td><code>tenant=vertexretail, application=null</code></td><td>Caller must be Vertex's Tenant Admin (Raj) — the query behind this route only ever touches Tenant-grain tables, so there is nothing operational to leak even if the check were skipped</td></tr>
+    </table>
+  </div>
+
+  <h2>Login &amp; sessions on any host</h2>
+  <div class="card">
+    <div class="flow">
+      <div class="box b-plain"><b>1. Page loads</b><small>Angular boots, calls <code>GET /api/tenant-branding</code> — middleware already resolved the host</small></div>
+      <div class="ar">→</div>
+      <div class="box b-plain"><b>2. OTP login</b><small>email → OTP; the OTP email's links are built from THIS host</small></div>
+      <div class="ar">→</div>
+      <div class="box b-plain"><b>3. JWT issued</b><small>carries <code>tenant_id</code> (+ <code>application_id</code> ONLY for Application Owners — a Tenant Admin JWT never carries this claim at all)</small></div>
+      <div class="ar">→</div>
+      <div class="box b-plain"><b>4. Scope enforced</b><small>every API call re-checks: <b>scope = min(role, host) AND identity = registered owner</b> for any Application-grain route. Wrong combination → redirect or 403, server-side, not just hidden menus</small></div>
+    </div>
+  </div>
+
+  <div class="pagenav"><a href="#/routing-b">← Customer Domains</a><a href="#/billing">Next: Billing &amp; Credit Hierarchy →</a></div>
+</section>
+
+<!-- ==================== PAGE: BILLING ==================== -->
+<section class="page" id="billing">
+  <div class="crumb">Money</div>
+  <h1>Billing &amp; Credit Hierarchy</h1>
+  <p class="lead">Three independent money layers, stacked. Layer 1 and Layer 2 apply to every Application regardless of type. Layer 3 exists only for the scan-and-earn side of an Application's activity.</p>
+
+  <div class="card acc-b">
+    <h3 style="margin-top:0">Layer 1 — Super Admin ⇄ Tenant (subscription plan)</h3>
+    <p class="muted" style="font-size:13.5px">Governs how many Applications a Tenant may provision — nothing more.</p>
+    <div class="flow">
+      <div class="box b-blue"><b>1. Configurable plan catalog</b><small>Super Admin manages it — e.g. Plan 1 ₹2,000/mo up to 3 Applications, Plan 2 ₹5,500/mo up to 10, Plan 3 ₹50,000/mo unlimited. Super Admin can add more plans any time, no deploy needed</small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>2. Tenant picks a plan + duration</b><small>total = plan price × months chosen. Pays via gateway checkout</small></div>
+      <div class="ar">→</div>
+      <div class="box b-teal"><b>3. Confirmed payment (webhook)</b><small>activates the subscription, sets the Application ceiling</small></div>
+      <div class="ar">→</div>
+      <div class="box b-purple"><b>4. Ceiling enforced</b><small>provisioning the next Application beyond the plan blocks with an upgrade prompt — no overage billing</small></div>
+    </div>
+  </div>
+
+  <div class="card acc-g">
+    <h3 style="margin-top:0">Layer 2 — Tenant ⇄ Application Owner (flat per-Application subscription + single-page paywall)</h3>
+    <p class="muted" style="font-size:13.5px">Governs whether one specific Application works at all — applies uniformly to ecommerce, scan-and-earn, and hybrid.</p>
+    <div class="flow">
+      <div class="box b-green"><b>1. Tenant sets custom terms</b><small>at Application-creation time: price-per-month + duration (1/3/6/9/12 months) — different per Application, Tenant's choice</small></div>
+      <div class="ar">→</div>
+      <div class="box b-teal"><b>2. Owner accepts invite → Activate &amp; Pay</b><small>first login shows ONE page: price × duration = total, pay button. Nothing else is reachable until paid</small></div>
+      <div class="ar">→</div>
+      <div class="box b-purple"><b>3. Confirmed payment (webhook)</b><small>activates for the paid period; renewal (early or after a lapse) uses the same single page</small></div>
+      <div class="ar">→</div>
+      <div class="box b-red"><b>4. Unpaid/expired = everything stops</b><small>owner dashboard, public storefront/API, AND the scan landing page all show the same "temporarily unavailable" / Activate &amp; Pay response — not just the dashboard</small></div>
+    </div>
+    <p class="muted" style="font-size:13px;margin-top:10px">Assumption: a Tenant's own Layer 1 plan lapsing does <b>not</b> cascade to suspend its already-paid Applications — each Application's uptime depends only on its own Layer 2 status. A lapsed Tenant plan only blocks provisioning <i>new</i> Applications.</p>
+  </div>
+
+  <div class="card acc-o">
+    <h3 style="margin-top:0">Layer 3 — Scan-and-earn only: the credit cascade</h3>
+    <p class="muted" style="font-size:13.5px">A separate gate stacked on top of Layer 2 — an Application can be fully paid-up on its subscription and still be unable to create a coupon batch because its own credit balance is empty.</p>
+    <div class="flow">
+      <div class="box b-blue"><b>1. Super Admin sets the rate</b><small>one platform-wide INR-per-credit price</small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>2. Tenant buys credits</b><small>pays Super Admin (rate × amount) → confirmed payment IS the approval, credits <code>tenant_credit_balance</code></small></div>
+      <div class="ar">→</div>
+      <div class="box b-teal"><b>3. Tenant sets its own resale rate</b><small>optional — defaults to the platform rate</small></div>
+      <div class="ar">→</div>
+      <div class="box b-purple"><b>4. Application buys credits from its Tenant</b><small>capped at whatever the Tenant itself currently holds — a Tenant can never oversell. Payment credits <code>application_credit_balance</code> and debits <code>tenant_credit_balance</code> by the same amount, atomically</small></div>
+      <div class="ar">→</div>
+      <div class="box b-red"><b>5. Coupon batch = auto-debit</b><small>capped at the Application's current balance, debited atomically at creation — no bypass path</small></div>
+    </div>
+    <div class="note" style="margin-top:12px"><b>Settlement is a separate system from the credit ledger:</b> when a consumer actually scans and cashback triggers, the real UPI payout is disbursed from the <b>Super Admin's own payment/payout account</b> — unchanged from the platform's single central payout architecture. Credits are purely an internal entitlement ledger, never a pre-funded escrow for the payout itself.</div>
+  </div>
+
+  <div class="pagenav"><a href="#/resolution">← Request Resolution</a><a href="#/consumer">Next: Consumer Identity, Checkout &amp; Mobile Apps →</a></div>
+</section>
+
+<!-- ==================== PAGE: CONSUMER ==================== -->
+<section class="page" id="consumer">
+  <div class="crumb">Money</div>
+  <h1>Consumer Identity, Checkout &amp; Mobile Apps</h1>
+  <p class="lead">One unified phone+OTP identity per Application powers every consumer touchpoint — guest checkout, guest scan, and the Application's own mobile app all resolve to the same account.</p>
+
+  <div class="card acc-p">
+    <h3 style="margin-top:0">Unified consumer identity — no separate sign-up, ever</h3>
+    <p style="margin-bottom:0">Verifying an OTP against a phone number <b>is</b> the account: a new number creates one, an existing number logs into it — scoped <code>UNIQUE(application_id, phone)</code>. The same account holds order history (ecommerce) and scan/cashback history (scan-and-earn) regardless of which channel first created it. The same phone number on two different Applications is two entirely separate, unrelated accounts.</p>
+  </div>
+
+  <div class="card acc-t">
+    <h3 style="margin-top:0">Ecommerce checkout — a real, payable transaction</h3>
+    <div class="flow">
+      <div class="box b-orange"><b>1. Phone + OTP at checkout</b><small>required — there is no fully anonymous order. Doubles as implicit account creation/login</small></div>
+      <div class="ar">→</div>
+      <div class="box b-plain"><b>2. Address</b><small>saved address book if logged in with history, or a one-off inline address</small></div>
+      <div class="ar">→</div>
+      <div class="box b-teal"><b>3. Payment via the Application's own gateway sub-account</b><small>Scan4Earn collects it, but it settles straight to the Application Owner's own bank account — Scan4Earn's and the Tenant's own funds are never in this path (a completely different money flow than the Layer 1/2/3 billing on the previous page)</small></div>
+      <div class="ar">→</div>
+      <div class="box b-purple"><b>4. Confirmed via signed webhook</b><small>same pattern as platform billing — never a client-side callback alone</small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>5. Order history &amp; invoice</b><small>the same account can log back in later to view orders, track status, and download an invoice</small></div>
+    </div>
+    <p class="muted" style="font-size:13px;margin-top:10px">Until an Application's payment sub-account completes onboarding/KYC, its checkout is disabled or COD-only — never allowed to silently fail at payment time.</p>
+  </div>
+
+  <div class="card acc-o">
+    <h3 style="margin-top:0">Scan-and-earn — two scan channels</h3>
+    <div class="row">
+      <div class="box b-plain"><b>Channel 1 — Guest/Web scan</b><small>Any camera/QR scanner → permanent public landing page → phone + OTP (creates/reuses the account for history only) → UPI ID entered <b>fresh, every single time</b> — never read from or saved to any profile → cashback transfers immediately.</small></div>
+      <div class="box b-plain"><b>Channel 2 — Mobile App scan</b><small>Consumer registers once inside the Application's own dedicated app (same phone+OTP flow) and adds UPI to their profile once. Logged-in scans resolve identity from the session — no re-entry — cashback auto-transfers to the stored UPI.</small></div>
+    </div>
+    <p class="muted" style="font-size:13px;margin-top:10px">Every scan/cashback record is tagged with its channel (<code>guest_web</code> / <code>mobile_app</code>), but both write to the <b>same</b> unified consumer history. A guest-only user who later installs the app and logs in with the same phone number sees their prior scan history already there.</p>
+  </div>
+
+  <div class="card acc-g">
+    <h3 style="margin-top:0">White-labeled mobile apps</h3>
+    <p style="margin-bottom:8px">A scan-and-earn (or hybrid) Application Owner can commission a <b>fully separate, independently-compiled mobile app</b> — not a shared, runtime-reskinned app — published under their own app-store developer account(s).</p>
+    <div class="row">
+      <div class="box b-plain"><b>Scan4Earn provides</b><small>a branding-configuration surface (name, icon, splash, colors, bundle ID) and a build pipeline that produces a signed binary per Application on request</small></div>
+      <div class="box b-plain"><b>One shared codebase</b><small>registration, login, profile, UPI management, scan, history, points/cashback balance, redemption requests — identical across every Application's app. Only the build configuration forks per client, never the code</small></div>
+    </div>
+    <p class="muted" style="font-size:13px;margin-top:10px"><b>Real, ongoing cost, accepted deliberately:</b> every shared-codebase update means a rebuild + re-submission per Application, indefinitely — through each app store's normal review cycle (no over-the-air updates in this version). Plan release cadence and support capacity accordingly.</p>
+  </div>
+
+  <div class="pagenav"><a href="#/billing">← Billing &amp; Credit Hierarchy</a><a href="#/example">Next: Worked Example →</a></div>
+</section>
+
+<!-- ==================== PAGE: EXAMPLE ==================== -->
+<section class="page" id="example">
+  <div class="crumb">Example</div>
+  <h1>Worked Example — Vertex, Pals Paint &amp; Sumukham</h1>
+  <p class="lead">The full cast, every URL, and what each person can and cannot see. If you read only one page of this document, read this one.</p>
+
+  <div class="row" style="margin-bottom:18px">
+    <div class="box b-blue" style="flex:1;min-width:300px">
+      <b>🏢 Tenant — Vertex Retail Partners</b>
+      <small style="margin-bottom:8px">Slug <code>vertexretail</code> · default portal <code>vertexretail.scan4earn.com</code> · whitelabeled as <code>partners.vertexretail.com</code> <b>(B1)</b> · Raj is the Tenant Admin</small>
+      <div class="box b-plain" style="margin-top:8px"><b>What Raj provisions</b><small>Two client businesses so far: Pals Paint and Sumukham, four Applications total. He can add more clients any time.</small></div>
+    </div>
+  </div>
+  <div class="row" style="margin-bottom:18px">
+    <div class="box b-green" style="flex:1;min-width:300px">
+      <b>🎨 Client business — Pals Paint (owner: Mr. Pal)</b>
+      <small style="margin-bottom:8px">Owns two Applications, provisioned by Vertex, operated by nobody but him</small>
+      <div class="box b-plain" style="margin:8px 0"><b>🎯 Paint Coupons (scan-and-earn)</b><small>QR coupons inside paint buckets, scanned directly by the buyer for cashback. Workspace: <code>store.palspaint.com</code> path or <code>vertexretail.scan4earn.com/apps/paint-coupons/</code></small></div>
+      <div class="box b-plain"><b>🛒 Pals Paint Store (ecommerce)</b><small>Backend of online paint ordering on <code>www.palspaint.com</code>. Workspace: <code>store.palspaint.com</code></small></div>
+    </div>
+    <div class="box b-purple" style="flex:1;min-width:300px">
+      <b>🛍️ Client business — Sumukham (owner: Meera)</b>
+      <small style="margin-bottom:8px">Owns two Applications, provisioned by Vertex, operated by nobody but her</small>
+      <div class="box b-plain" style="margin:8px 0"><b>🛒 Sumukham Store (ecommerce)</b><small>Own domain <b>(B2)</b>: <code>shop.sumukham.com</code> — powers <code>www.sumukham.com</code></small></div>
+      <div class="box b-plain"><b>🎁 Sumukham Rewards (scan-and-earn)</b><small>Default path: <code>vertexretail.scan4earn.com/apps/sumukham-rewards/</code></small></div>
+    </div>
+  </div>
+
+  <h2>Who opens which URL — and the isolation boundaries</h2>
+  <div class="card">
+    <table>
+      <tr><th style="width:21%">Person</th><th style="width:26%">Opens</th><th>Sees</th><th style="width:24%">Can NEVER see</th></tr>
+      <tr><td><b>You</b> — Super Admin</td><td><code>scan4earn.com</code></td><td>Vertex exists, has 2 clients &amp; 4 Applications; subscription &amp; credit ledger</td><td><b>Any order, scan, cashback, or inventory number for any Application</b></td></tr>
+      <tr><td><b>Raj</b> — Tenant Admin, Vertex</td><td><code>vertexretail.scan4earn.com</code></td><td>Administrative list: Pals Paint's 2 Applications and Sumukham's 2 Applications — name, type, status, credits consumed</td><td><b>Either business's actual dashboard — orders, inventory, scans, cashback</b></td></tr>
+      <tr><td><b>Mr. Pal</b> — Application Owner</td><td><code>store.palspaint.com</code> (Store) and his Paint Coupons path</td><td>Full operational control of BOTH his own Applications</td><td>Sumukham's anything, Vertex's portal, other Tenants</td></tr>
+      <tr><td><b>Meera</b> — Application Owner</td><td><code>shop.sumukham.com</code> (Store) and her Rewards path</td><td>Full operational control of BOTH her own Applications</td><td>Pals Paint's anything, Vertex's portal, other Tenants</td></tr>
+      <tr><td><b>Sumukham's web developer</b></td><td><code>shop.sumukham.com/api/ecommerce/v1</code></td><td>Integrates <code>www.sumukham.com</code> using the Store's API key — the key scopes every call to that one Application</td><td>Any other Application's data, even with a valid key</td></tr>
+      <tr><td><b>Priya</b> — a consumer</td><td>scans a QR code, or shops online</td><td>A branded landing page or storefront (walkthrough below)</td><td>—</td></tr>
+    </table>
+  </div>
+
+  <h2>Walkthrough 1 — Priya scans a Paint Coupons QR</h2>
+  <div class="card acc-o">
+    <div class="flow">
+      <div class="box b-orange"><b>1. Scan</b><small>Priya buys Pals Paint, finds the QR inside the bucket, and scans it herself. It encodes the permanent URL <code>scan4earn.com/s/PP-8241</code> — never a custom domain</small></div>
+      <div class="ar">→</div>
+      <div class="box b-blue"><b>2. Resolve</b><small>Server looks up coupon <code>PP-8241</code> → belongs to Application Paint Coupons, owner Mr. Pal</small></div>
+      <div class="ar">→</div>
+      <div class="box b-purple"><b>3. Brand</b><small>Page renders with Pals Paint's logo &amp; colors. Mobile → OTP → UPI → ₹50 cashback</small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>4. Record</b><small>Scan + payout stored with <code>tenant=vertexretail, application=paint-coupons</code></small></div>
+      <div class="ar">→</div>
+      <div class="box b-teal"><b>5. Visible to</b><small><b>Only Mr. Pal's dashboard.</b> Raj's screen shows nothing about this scan — at most, a credit-ledger line noting Paint Coupons consumed 1 credit. Your Super Admin screen shows nothing at all.</small></div>
+    </div>
+  </div>
+
+  <h2>Walkthrough 2 — a shopper orders from Sumukham Store</h2>
+  <div class="card acc-t">
+    <div class="flow">
+      <div class="box b-orange"><b>1. Shop</b><small>Shopper browses <code>www.sumukham.com</code> — Sumukham's OWN website, hosted by them</small></div>
+      <div class="ar">→</div>
+      <div class="box b-teal"><b>2. API call</b><small>Their site calls <code>shop.sumukham.com/api/ecommerce/v1/orders</code> with the Store's API key (same-origin → no CORS)</small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>3. Order placed</b><small>Server prices items itself, decrements stock atomically, stores the order with <code>tenant=vertexretail, application=sumukham-store</code></small></div>
+      <div class="ar">→</div>
+      <div class="box b-purple"><b>4. Visible to</b><small><b>Only Meera's dashboard.</b> Raj's provisioning list shows Sumukham Store as "active" and its credit consumption, if metered — never the order itself, never GMV.</small></div>
+    </div>
+  </div>
+
+  <h2>Walkthrough 3 — the same actions, side by side</h2>
+  <div class="card">
+    <table>
+      <tr><th>Action</th><th>Pals Paint (Application-owned domain, B2)</th><th>Sumukham (Application-owned domain + default, B2/A)</th></tr>
+      <tr><td>Application Owner opens their dashboard</td><td><code>store.palspaint.com</code></td><td><code>shop.sumukham.com</code> <i>(Store, B2)</i> / <code>vertexretail.scan4earn.com/apps/sumukham-rewards/</code> <i>(Rewards, default)</i></td></tr>
+      <tr><td>Tenant Admin's view of the Application</td><td>One row in Raj's list: name, type, status, credits — nothing else</td><td>Same — one row each for Store and Rewards</td></tr>
+      <tr><td>Website API integration</td><td><code>store.palspaint.com/api/ecommerce/v1</code></td><td><code>shop.sumukham.com/api/ecommerce/v1</code></td></tr>
+      <tr><td>QR printed on coupons</td><td><code>scan4earn.com/s/:code</code> <i>(always ours — branding applied at scan time)</i></td><td><code>scan4earn.com/s/:code</code></td></tr>
+    </table>
+    <p class="muted" style="font-size:13px">Notice: the two client businesses behave identically inside — same database, same APIs, same portal code. The ONLY difference is which hostnames alias onto them. Domains are decoration; <code>tenant_id + application_id</code> on every row, plus the owner-identity check, is the actual structure.</p>
+  </div>
+
+  <div class="pagenav"><a href="#/consumer">← Consumer Identity, Checkout &amp; Mobile Apps</a><a href="#/flows">Next: Lifecycle Flows →</a></div>
+</section>
+
+<!-- ==================== PAGE: FLOWS ==================== -->
+<section class="page" id="flows">
+  <div class="crumb">What happens</div>
+  <h1>Lifecycle Flows</h1>
+  <p class="lead">The four end-to-end journeys, from Tenant onboarding to money-out. <span class="tag ok">works</span> = solid today · <span class="tag partial">partial</span> = works with problems · <span class="tag new">missing</span> = doesn't exist yet.</p>
+
+  <div class="card acc-b">
+    <h3 style="margin-top:0">Flow A — Tenant onboarding &amp; subscription <span class="tag partial">partial — plan catalog is new</span></h3>
+    <div class="flow">
+      <div class="box b-blue"><b>1. Super Admin creates Tenant</b><small>You register "Vertex Retail Partners": name, email, slug <code>vertexretail</code></small></div>
+      <div class="ar">→</div>
+      <div class="box b-blue"><b>2. Tenant Admin invited</b><small>Raj gets OTP login at <code>vertexretail.scan4earn.com</code></small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>3. Raj subscribes to a plan</b><small>picks a plan + duration from the catalog, pays via gateway checkout <span class="tag new">plan catalog is new</span></small></div>
+      <div class="ar">→</div>
+      <div class="box b-blue"><b>4. Confirmed payment activates it</b><small>webhook-driven, no manual approval click; sets the Application ceiling for this Tenant</small></div>
+    </div>
+  </div>
+
+  <div class="card acc-g">
+    <h3 style="margin-top:0">Flow B — Application provisioning, billing &amp; ownership handoff <span class="tag partial">partial — ownership handoff and per-Application billing are new</span></h3>
+    <div class="flow">
+      <div class="box b-green"><b>1. Raj creates the Application</b><small>Chooses <b>type: ECOMMERCE</b> or <b>SCAN_AND_EARN</b>, names it "Pals Paint Store," sets branding/currency <span class="tag new">type field missing today</span></small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>2. Raj sets its billing terms</b><small>custom price-per-month + duration for THIS Application <span class="tag new">new</span></small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>3. Raj sends an owner-invite</b><small>to Mr. Pal's email — this is the one and only way an Application gets its owner <span class="tag new">missing</span></small></div>
+      <div class="ar">→</div>
+      <div class="box b-teal"><b>4. Mr. Pal accepts &amp; pays</b><small>OTP login, then the single Activate &amp; Pay page — nothing else opens until paid <span class="tag new">paywall is new</span></small></div>
+      <div class="ar">→</div>
+      <div class="box b-purple"><b>5. Raj's access drops</b><small>to the administrative list-row only — no further operational access, ever, unless Mr. Pal explicitly grants support access (out of scope for v1)</small></div>
+    </div>
+  </div>
+
+  <div class="card acc-o">
+    <h3 style="margin-top:0">Flow C — Scan-and-earn campaign <span class="tag partial">partial — credit cascade and mobile channel are new</span></h3>
+    <div class="flow">
+      <div class="box b-green"><b>1. Mr. Pal requests credits</b><small>from his own Tenant (Raj), pays for them; Raj can only approve if his own Tenant balance covers it (bought from Super Admin the same way) <span class="tag new">cascade is new</span></small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>2. Create batch</b><small>reward type (points/cashback), quantity, expiry — capped at &amp; auto-debited from his Application's own credit balance (the debit itself already works correctly today at the Tenant level; this phase redirects its source to the Application's own balance)</small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>3. Generate codes + QR</b><small>random, non-enumerable codes — already the case today via the existing code generator, carried forward unchanged</small></div>
+      <div class="ar">→</div>
+      <div class="box b-green"><b>4. Print &amp; activate</b><small>ONE lifecycle: draft → printed → active</small></div>
+      <div class="ar">→</div>
+      <div class="box b-orange"><b>5. Consumer scans — either channel</b><small>Priya scans directly (Channel 1: phone+OTP+fresh UPI) or via Mr. Pal's own mobile app if she's registered (Channel 2: session-based, stored UPI) <span class="tag new">two channels are new</span></small></div>
+      <div class="ar">→</div>
+      <div class="box b-orange"><b>6. Reward credited</b><small>points ledger or instant UPI cashback, tagged with its scan channel — recorded with <code>tenant_id + application_id</code></small></div>
+      <div class="ar">→</div>
+      <div class="box b-orange"><b>7. Redemption / payout</b><small>points→cash approvals, visible only inside Mr. Pal's own dashboard; a reconciliation job retries stuck payouts <span class="tag new">missing</span></small></div>
+    </div>
+  </div>
+
+  <div class="card acc-t">
+    <h3 style="margin-top:0">Flow D — Ecommerce order <span class="tag partial">backend exists, owner-facing order management and real checkout payment are new</span></h3>
+    <div class="flow">
+      <div class="box b-green"><b>1. Catalog</b><small>products from templates, variants, images, stock — managed by Meera/Mr. Pal inside their own dashboard</small></div>
+      <div class="ar">→</div>
+      <div class="box b-teal"><b>2. Storefront integration</b><small><code>www.sumukham.com</code> reads the catalog, manages cart/wishlist via the Application's API</small></div>
+      <div class="ar">→</div>
+      <div class="box b-orange"><b>3. Checkout — phone + OTP, then pay</b><small>implicit account creation/login, then payment via the Application's own gateway sub-account — settles straight to Meera's own account <span class="tag new">real payment is new</span></small></div>
+      <div class="ar">→</div>
+      <div class="box b-teal"><b>4. Order confirmed on webhook</b><small>server-side pricing, atomic stock decrement — this code is solid today <span class="tag ok">works</span>; payment confirmation is the new part</small></div>
+      <div class="ar">→</div>
+      <div class="box b-purple"><b>5. Order management</b> <span class="tag new">missing</span><small>owner's order list, detail, status transitions, invoice download — entirely inside the Application dashboard; the shopper must NOT be able to mark "delivered"</small></div>
+      <div class="ar">→</div>
+      <div class="box b-purple"><b>6. Fulfillment &amp; webhooks</b><small><code>order.created</code> / <code>order.shipped</code> out; low-stock alerts — visible only to the owner, never to Raj or you</small></div>
+    </div>
+  </div>
+
+  <div class="pagenav"><a href="#/example">← Worked Example</a><a href="#/dashboards">Next: Dashboards →</a></div>
+</section>
+
+<!-- ==================== PAGE: DASHBOARDS ==================== -->
+<section class="page" id="dashboards">
+  <div class="crumb">What happens</div>
+  <h1>Dashboards — Who Sees What</h1>
+  <p class="lead">Three dashboards exist. Two of them are deliberately thin — administrative only. The third is where the entire product's value lives.</p>
+
+  <div class="card acc-b">
+    <h3 style="margin-top:0">🛡️ Super Admin Dashboard — what YOU see at <code>scan4earn.com/super-admin/dashboard</code></h3>
+    <div class="kpis">
+      <div class="kpi"><b>7</b><small>Total Tenants</small></div>
+      <div class="kpi"><b>23</b><small>Total Applications</small></div>
+      <div class="kpi"><b>14 / 9</b><small>Ecommerce / Scan-and-earn split</small></div>
+      <div class="kpi"><b>21</b><small>Active subscriptions</small></div>
+      <div class="kpi"><b>₹4.2L</b><small>Total credits sold (platform-wide)</small></div>
+      <div class="kpi"><b>3</b><small>Pending credit requests</small></div>
+    </div>
+    <p class="muted" style="font-size:13px">Plus: a Tenant health list (name, Application count, subscription status, last payment). <b>That is the entire dashboard.</b> No order count, no GMV, no scan count, no cashback figure appears anywhere on this screen or any screen reachable from it — not even summed across the whole platform.</p>
+  </div>
+
+  <div class="card acc-g">
+    <h3 style="margin-top:0">🏢 Tenant Admin Dashboard — what Raj sees at <code>vertexretail.scan4earn.com/tenant/dashboard</code></h3>
+    <div class="kpis">
+      <div class="kpi"><b>Plan 2</b><small>Vertex's own subscription (Layer 1)</small></div>
+      <div class="kpi"><b>2</b><small>Client businesses</small></div>
+      <div class="kpi"><b>4 / 10</b><small>Applications used / plan ceiling</small></div>
+      <div class="kpi"><b>2,400</b><small>Vertex's own credits remaining</small></div>
+      <div class="kpi"><b>0</b><small>Pending owner invites</small></div>
+      <div class="kpi"><b>1</b><small>Pending Application credit requests to approve</small></div>
+    </div>
+    <table>
+      <tr><th>Application</th><th>Client</th><th>Type</th><th>Status</th><th>Owner</th><th>Its own price/mo</th><th>Next renewal</th></tr>
+      <tr><td>Paint Coupons</td><td>Pals Paint</td><td>Scan-and-earn</td><td>Active</td><td>Mr. Pal</td><td>₹1,500</td><td>2026-11-14</td></tr>
+      <tr><td>Pals Paint Store</td><td>Pals Paint</td><td>Ecommerce</td><td>Active</td><td>Mr. Pal</td><td>₹2,200</td><td>2026-11-14</td></tr>
+      <tr><td>Sumukham Store</td><td>Sumukham</td><td>Ecommerce</td><td>Active</td><td>Meera</td><td>₹3,000</td><td>2027-01-02</td></tr>
+      <tr><td>Sumukham Rewards</td><td>Sumukham</td><td>Scan-and-earn</td><td>Active</td><td>Meera</td><td>₹1,500</td><td>2027-01-02</td></tr>
+    </table>
+    <p class="muted" style="font-size:13px">This table is the ceiling of what Raj can ever see about an Application — note the price is what <i>he charges Mr. Pal/Meera</i> (Layer 2), a completely different number from what Raj himself pays Super Admin (Layer 1). No "view dashboard" link exists on any row — clicking a row opens only the administrative detail (contact info, billing history, credit consumption), never the Application's own workspace.</p>
+  </div>
+
+  <div class="card acc-t">
+    <h3 style="margin-top:0">🛒 Application Dashboard (Ecommerce) — what Meera sees at <code>shop.sumukham.com/dashboard</code> <span class="tag new">build this</span></h3>
+    <div class="kpis">
+      <div class="kpi"><b>1,142</b><small>Orders (period)</small></div>
+      <div class="kpi"><b>₹6.8L</b><small>GMV</small></div>
+      <div class="kpi"><b>₹595</b><small>Avg order value</small></div>
+      <div class="kpi"><b>3.1%</b><small>Cart → order conversion</small></div>
+      <div class="kpi"><b>38</b><small>Awaiting fulfillment</small></div>
+      <div class="kpi"><b>12</b><small>Low-stock products</small></div>
+      <div class="kpi"><b>96.1%</b><small>API success rate</small></div>
+      <div class="kpi"><b>689</b><small>Unique customers</small></div>
+    </div>
+    <p class="muted" style="font-size:13px">Plus: revenue-over-time chart · order status funnel · top products · stock movement log · webhook delivery health · CSV export. <b>This is the only screen in the entire product where any of these numbers exist.</b> A <b>Billing</b> menu item shows Meera's own subscription status/renewal date and her payment-sub-account onboarding status — separate from the shopper-facing checkout payments flowing through that same sub-account.</p>
+  </div>
+
+  <div class="card acc-o">
+    <h3 style="margin-top:0">🎯 Application Dashboard (Scan-and-earn) — what Mr. Pal sees at <code>store.palspaint.com/paint-coupons/dashboard</code> <span class="tag new">build this</span></h3>
+    <div class="kpis">
+      <div class="kpi"><b>12,480</b><small>Total scans (period)</small></div>
+      <div class="kpi"><b>92.4%</b><small>Scan success rate</small></div>
+      <div class="kpi"><b>₹48,200</b><small>Cashback paid out</small></div>
+      <div class="kpi"><b>8,912</b><small>Points issued</small></div>
+      <div class="kpi"><b>64%</b><small>Coupon burn-down</small></div>
+      <div class="kpi"><b>41</b><small>Pending redemptions</small></div>
+      <div class="kpi"><b>2,204</b><small>New customers (this Application)</small></div>
+    </div>
+    <p class="muted" style="font-size:13px">Plus: scans-over-time with date range (split by <code>guest_web</code> vs <code>mobile_app</code> channel) · geo heatmap (lat/long already captured) · top batches · failed-payout queue. No dealer leaderboard — there are no dealers in this product. A <b>Billing</b> menu item shows Mr. Pal's own subscription status <i>and</i> his Application's credit balance/ledger (requests, payments, batch debits) — the credit gate is separate from, and stacked on top of, the subscription paywall.</p>
+  </div>
+
+  <div class="card acc-p">
+    <h3 style="margin-top:0">🔌 Embedded API Reference — Swagger-style, inside every Application's own workspace at <code>/api-docs</code> <span class="tag new">build this</span></h3>
+    <p class="muted" style="font-size:13.5px">The self-service integration page: the Application Owner (or their developer) opens the dashboard and walks away with a working integration. Every value on the page is <b>pre-filled for THIS Application</b> — never generic docs.</p>
+    <div class="row" style="margin:12px 0">
+      <div class="box b-plain"><b>Live, Application-specific values</b><small>Base URL = the Application's effective primary domain · the Application's key preview with copy + rotate · required headers already filled in</small></div>
+      <div class="box b-plain"><b>Endpoint explorer</b><small>Expandable groups with method badges, request/response schemas, status codes, a <b>Try-it-out console</b> using the Application's own credentials</small></div>
+      <div class="box b-plain"><b>Copy-paste code samples</b><small>curl · JavaScript (fetch) — key and base URL already substituted</small></div>
+      <div class="box b-plain"><b>Webhook event catalog</b><small>every event the Application can emit (<code>order.created</code>, <code>scan.recorded</code>, <code>stock.low</code>…), signature-verification sample, "send test event" button</small></div>
+    </div>
+  </div>
+
+  <div class="note"><b>Why the admin tiers stay this thin — root causes in all three layers:</b><br>
+  ① <b>Database:</b> <code>scans</code>, <code>points_transactions</code>, <code>ecommerce_orders</code>, <code>stock_movements</code> etc. all key on <code>application_id</code> (NOT NULL). No Super Admin or Tenant Admin query is ever written against these tables — the authorization middleware refuses to route to them for those roles, so there is no accidental leak surface.<br>
+  ② <b>Server:</b> Tenant/Super Admin endpoints return only <code>COUNT(*)</code> / <code>SUM(credits_consumed)</code> aggregates from Tenant-grain and Platform-grain tables — they physically cannot return an order row or a scan row because they never join against those tables.<br>
+  ③ <b>Client:</b> the Tenant portal and Super Admin portal ship with zero components that render an order table, a stock number, or a scan chart — those components exist only in the Application-workspace bundle.</div>
+
+  <div class="pagenav"><a href="#/flows">← Lifecycle Flows</a><a href="#/data">Next: Data Model →</a></div>
+</section>
+
+<!-- ==================== PAGE: DATA ==================== -->
+<section class="page" id="data">
+  <div class="crumb">Under the hood</div>
+  <h1>Data Model &amp; the Money Loop</h1>
+  <p class="lead">One scoping rule makes the whole product enforceable, not just designed correctly: <b>every business fact carries <code>application_id</code> (NOT NULL)</b>, and the authorization layer draws a hard line at that grain — Tenant-grain and Platform-grain queries are never allowed to join into it.</p>
+
+  <div class="card">
+    <table>
+      <tr><th style="width:22%">Grain</th><th style="width:44%">Tables</th><th>Rule</th></tr>
+      <tr><td><b>Platform</b></td><td><code>features</code>, <code>permissions</code></td><td>Global catalogs only. Queryable by Super Admin.</td></tr>
+      <tr><td><b>Platform</b> (cont'd)</td><td><code>subscription_plans</code></td><td>Super Admin's configurable plan catalog (name, price/month, max Applications) — Layer 1 of billing.</td></tr>
+      <tr><td><b>Tenant</b></td><td><code>tenants</code>, <code>tenant_credit_balance</code>, <code>credit_requests</code>, <code>tenant_subscriptions</code>, <code>tenant_credit_rate</code>, <code>product_templates</code>, <code>custom_domains</code></td><td>Billing &amp; provisioning config. Queryable by Super Admin (all rows) and Tenant Admin (own Tenant's rows). <b>Never joined against Application-grain tables in any Super Admin or Tenant Admin query.</b></td></tr>
+      <tr><td><b>Application</b> (tenant_id + application_id, both NOT NULL)</td><td><code>products</code>, <code>coupons</code>, <code>coupon_batches</code>, <code>ecommerce_orders</code>, <code>scans</code>, <code>points_transactions</code>, <code>cashback_transactions</code>, <code>stock_movements</code>, <code>webhooks</code>, <code>api_usage_logs</code>, <code>application_subscriptions</code>, <code>application_credit_balance</code>, <code>application_credit_requests</code>, <code>application_credit_transactions</code>, <code>customer_addresses</code>, <code>application_payment_accounts</code>, <code>application_mobile_apps</code></td><td><b>Queryable ONLY by a session whose <code>user_id</code> matches that Application's <code>owner_user_id</code>.</b> No Tenant Admin or Super Admin code path ever selects from these tables. Application deletion = soft-delete — never <code>SET NULL</code>, never <code>CASCADE</code> on financial history.</td></tr>
+      <tr><td><b>End user</b></td><td><code>users</code> (role <code>CUSTOMER</code>), <code>user_upi_details</code></td><td>One customer identity per Application: <code>UNIQUE(application_id, phone)</code>. <code>user_upi_details</code> rescoped from <code>tenant_id</code> to <code>application_id</code> to match — a real inconsistency found and fixed in this pass. <code>scans</code>/<code>cashback_transactions</code> gain a <code>scan_channel</code> column (<code>guest_web</code>/<code>mobile_app</code>).</td></tr>
+    </table>
+  </div>
+
+  <div class="rule">
+    <b>Hard architectural rule:</b> no API endpoint that returns rows from an Application-grain table may be reachable by a Super Admin or Tenant Admin session — enforced at the authorization-middleware layer, not just hidden in the UI. The only Application-grain figure a Tenant Admin or Super Admin may ever see is a <code>COUNT(*)</code> or <code>SUM(credits_consumed)</code>, and even that is served from a separate, pre-aggregated rollup table — never a live join into <code>orders</code>, <code>scans</code>, or <code>stock_movements</code>.
+  </div>
+
+  <h2>Removed vs. added in this schema</h2>
+  <div class="card">
+    <ul class="tight">
+      <li><b>Dropped entirely:</b> <code>dealers</code>, <code>dealer_points</code>, <code>dealer_point_transactions</code> tables.</li>
+      <li><b><code>DEALER</code> removed</b> from the <code>users.role</code> CHECK constraint — the only roles left are <code>SUPER_ADMIN</code>, <code>TENANT_ADMIN</code>, <code>APPLICATION_OWNER</code> (collapsed from <code>APP_MANAGER</code>/<code>APP_VIEWER</code> — one login, no viewer tier), and <code>CUSTOMER</code>.</li>
+      <li><b>Scanning code path simplified:</b> every scan is recorded as a direct consumer scan; no "scanned by dealer on behalf of" attribution exists anywhere.</li>
+      <li><b>Added for billing:</b> <code>subscription_plans</code>, <code>application_subscriptions</code>, <code>platform_credit_rate</code>, <code>tenant_credit_rate</code>, <code>application_credit_balance</code>, <code>application_credit_requests</code>, <code>application_credit_transactions</code> — the full three-layer model on the <a href="#/billing">Billing page</a>.</li>
+      <li><b>Added for consumer identity &amp; checkout:</b> <code>customer_addresses</code>, <code>application_payment_accounts</code> (per-Application gateway sub-account/KYC), payment/invoice columns on <code>ecommerce_orders</code>, and <code>application_mobile_apps</code> (white-label build tracking) — see the <a href="#/consumer">Consumer page</a>.</li>
+    </ul>
+  </div>
+
+  <h2>The custom_domains table (enables B1/B2)</h2>
+  <div class="card">
+    <table>
+      <tr><th>Column</th><th>Purpose</th></tr>
+      <tr><td><code>hostname</code> <b>UNIQUE</b></td><td>e.g. <code>shop.sumukham.com</code> — one hostname, one target, ever</td></tr>
+      <tr><td><code>tenant_id</code> NOT NULL</td><td>owner Tenant; domains never cross Tenants</td></tr>
+      <tr><td><code>application_id</code> NULL</td><td>NULL = Tenant reseller portal (B1) · set = one Application (B2)</td></tr>
+      <tr><td><code>is_primary</code></td><td>one primary per target; other hostnames 301 to it</td></tr>
+      <tr><td><code>verification_token</code>, <code>status</code>, <code>ssl_status</code></td><td>pending → verified → active; dns_broken / ssl_expiring alert states</td></tr>
+    </table>
+  </div>
+
+  <h2>The money loop, end to end</h2>
+  <div class="card acc-b">
+    <p class="muted" style="font-size:13.5px;margin-top:0">Four genuinely separate money flows — never conflate them (full detail on <a href="#/billing">Billing &amp; Credit Hierarchy</a> and <a href="#/consumer">Consumer Identity, Checkout &amp; Mobile Apps</a>):</p>
+    <table>
+      <tr><th style="width:20%">Flow</th><th style="width:30%">Who pays whom</th><th style="width:25%">Settles into</th><th>Applies to</th></tr>
+      <tr><td>Layer 1</td><td>Tenant → Super Admin</td><td>Platform's own gateway account</td><td>Every Tenant (governs Application ceiling)</td></tr>
+      <tr><td>Layer 2</td><td>Application Owner → Tenant</td><td>Platform's own gateway account</td><td>Every Application, any type (subscription paywall)</td></tr>
+      <tr><td>Layer 3</td><td>Application → Tenant → Super Admin (credits)</td><td>Platform's own gateway account</td><td>Scan-and-earn/hybrid only (coupon-batch metering)</td></tr>
+      <tr><td>Checkout</td><td>Shopper → Application Owner</td><td>The <b>Application Owner's own</b> gateway sub-account</td><td>Ecommerce/hybrid only — Scan4Earn never touches this money</td></tr>
+    </table>
+    <p class="muted" style="font-size:13px">Application dashboards prove ROI to the owner alone. Super Admin sees only credits sold, subscription renewals, and per-Tenant Application counts — never the ROI detail, and never the shopper's checkout money, which never passes through the platform's own account at all.</p>
+  </div>
+
+  <div class="pagenav"><a href="#/dashboards">← Dashboards</a><a href="#/rules">Next: Production Rulebook →</a></div>
+</section>
+
+<!-- ==================== PAGE: RULES ==================== -->
+<section class="page" id="rules">
+  <div class="crumb">Under the hood</div>
+  <h1>Production Rulebook — edge cases a real deployment must handle</h1>
+  <p class="lead">Mostly about custom domains and the admin/Application data boundary — because that's where multi-tenant SaaS platforms get burned.</p>
+
+  <div class="card">
+    <table>
+      <tr><th style="width:24%">Edge case</th><th>Rule</th></tr>
+      <tr><td><b>Tenant/Super Admin dashboards leaking operational data</b></td><td>Treated as a <b>P0 security bug</b>, not a feature gap. Every dashboard query for these two roles runs against a fixed allow-list of admin-grain tables; any accidental join into an Application-grain table (products, orders, scans, cashback, stock) fails a CI check before it ever ships.</td></tr>
+      <tr><td><b>Hostname collisions</b></td><td>Global <code>UNIQUE(hostname)</code> — one hostname maps to exactly one target, ever. TXT ownership verification required before activation and re-checked periodically.</td></tr>
+      <tr><td><b>Multiple domains per target</b></td><td>Allowed (apex + www + legacy): N rows per target, exactly one <code>is_primary</code>. Non-primary hosts 301-redirect to the primary.</td></tr>
+      <tr><td><b>Apex domains can't CNAME</b></td><td><code>sumukham.com</code> (no subdomain) can't CNAME at most DNS providers. Offer static ingress IPs for A/ALIAS records.</td></tr>
+      <tr><td><b>Printed QR codes outlive domains</b></td><td><b>Critical:</b> coupons are physical — inside paint buckets. QR codes always encode the permanent platform URL (<code>scan4earn.com/s/:code</code>); at scan time the server applies the Application's <i>current</i> branding. Never print a custom domain into a QR.</td></tr>
+      <tr><td><b>TLS lifecycle</b></td><td>Auto-issue on verification, auto-renew. Renewal failure → status <code>ssl_expiring</code>, alert the Application Owner, grace period.</td></tr>
+      <tr><td><b>DNS drift</b></td><td>A scheduled job re-resolves CNAME/TXT. Broken → status <code>dns_broken</code> + notification; default <code>*.scan4earn.com</code> URLs are always alive.</td></tr>
+      <tr><td><b>Application lifecycle</b></td><td>Application soft-deleted → its domains deactivate (clean 410 page). Re-pointing a domain to a different Application requires fresh verification. Domains NEVER transfer across Tenants.</td></tr>
+      <tr><td><b>Ownership handoff can't be reversed casually</b></td><td>Once an Application Owner accepts the invite, the Tenant Admin cannot silently reassign ownership — reassignment requires the current owner's consent or a documented support/legal process (e.g. the client business changes hands).</td></tr>
+      <tr><td><b>Tenant suspension / non-payment</b></td><td>Custom domains serve a branded "temporarily unavailable" page (not 404). Default admin URLs stay up so the Tenant can pay and recover.</td></tr>
+      <tr><td><b>Sessions are per-origin</b></td><td>A token issued on <code>shop.sumukham.com</code> is capped at that host's scope, and further capped to Meera's own <code>user_id</code> as the Application's owner. <b>Scope = min(role, host) AND identity = registered owner</b>, enforced server-side.</td></tr>
+      <tr><td><b>Reserved namespace</b></td><td><code>custom_domains</code> may never contain <code>scan4earn.com</code> or <code>*.scan4earn.com</code>. Tenant slugs come from a blocklist (<code>www, api, admin, mail, ingress, status…</code>).</td></tr>
+      <tr><td><b>Per-host observability</b></td><td>Rate limits and API logs record the hostname alongside Tenant/Application — abuse on <code>shop.sumukham.com</code> is throttled without touching Pals Paint.</td></tr>
+      <tr><td><b>Environments</b></td><td>Staging mirrors everything on <code>scan4earn-staging.com</code> with environment-specific verification tokens.</td></tr>
+      <tr><td><b>Checkout money never touches Scan4Earn</b></td><td>An Application's checkout must never accept a live payment before its payment-gateway sub-account completes onboarding/KYC (<code>application_payment_accounts.onboarding_status = 'verified'</code>) — enforced server-side. Until then: disabled or COD-only, never a silent failure at payment time.</td></tr>
+      <tr><td><b>White-label app release overhead is real</b></td><td>Every Application's mobile app is a fully separate, independently compiled and published binary (a deliberate choice, not a default) — a shared-codebase bug fix means a rebuild + full app-store review cycle <i>per Application</i>, indefinitely. No OTA updates in this version. Budget release management accordingly; consider gating this as an opt-in premium add-on rather than a standard offering.</td></tr>
+    </table>
+  </div>
+
+
+  <div class="pagenav"><a href="#/data">← Data Model</a><a href="#/overview">Back to Overview ↺</a></div>
+</section>
+
+</main>
+</div>
+
+<script>
+(function(){
+  var pages = document.querySelectorAll('.page');
+  var links = document.querySelectorAll('nav a:not(.ext)');
+  function route(){
+    var h = (location.hash || '#/overview').replace('#/','');
+    if(!document.getElementById(h)) h = 'overview';
+    for (var i=0;i<pages.length;i++) pages[i].classList.toggle('active', pages[i].id===h);
+    for (var j=0;j<links.length;j++) links[j].classList.toggle('active', links[j].getAttribute('href')==='#/'+h);
+    window.scrollTo(0,0);
+  }
+  window.addEventListener('hashchange', route);
+  route();
+})();
+</script>
+</body>
+</html>
