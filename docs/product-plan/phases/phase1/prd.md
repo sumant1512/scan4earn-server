@@ -1,8 +1,8 @@
 # Phase 1 — Roles, Ownership & Data Boundary Foundation
 
 **Depends on:** nothing (this is the foundation everything else builds on)
-**Unlocks:** Phase 2 (dashboard/feature flags), Phase 3 (Tenant billing), Phase 6 (domains) all assume this identity model exists. Phase 8 later formalizes FR-16/FR-18's Consumer into a full OTP-based account model (PRD v3, §6.10) — this phase ships only the baseline rule (direct scan, no dealer, per-Application scoping), not the account/history layer.
-**Master reference:** `./PRD.md`
+**Unlocks:** Phase 2 (dashboard/feature flags), Phase 3 (Tenant billing), Phase 6 (domains) all assume this identity model exists. Phase 8 later formalizes FR-16/FR-18's Consumer into a full OTP-based account model (master PRD §6.10) — this phase ships only the baseline rule (direct scan, no dealer, per-Application scoping), not the account/history layer.
+**Master reference:** `../../PRD.md`
 
 ## Goal
 
@@ -26,7 +26,7 @@ Establish who can log in as what, what each role owns, and the one rule the enti
 ### Data Model Changes
 - **DR-1:** Formalize `application_id` (NOT NULL) as the join key on every business-operational table (`products`, `coupons`, `coupon_batches`, `ecommerce_orders`, `scans`, `points_transactions`, `cashback_transactions`, `stock_movements`, `webhooks`, `api_usage_logs`) — rename from `verification_app_id` in all user-facing surfaces (code/DB columns may keep the existing name internally if a rename is too invasive; user-facing terminology must say "Application").
 - **DR-2:** `applications` (formerly `verification_apps`) carries exactly one `owner_user_id` — NOT NULL once accepted, NULL only in the pre-acceptance inert state.
-- **DR-3:** Tenant-grain tables (`tenants`, `tenant_credit_balance`, `credit_requests`, `tenant_subscriptions`, `product_templates`, `custom_domains`) are the *only* tables a Super Admin/Tenant Admin query may touch.
+- **DR-3:** Tenant-grain tables (`tenants`, `tenant_credit_balance`, `credit_requests`, `tenant_subscriptions`, `product_templates`, `custom_domains`) are the *only* tables a Super Admin/Tenant Admin query may touch. (Phase 3/4/5 later add one narrow, explicit carve-out — Tenant Admin gets billing-only-column visibility into two Application-grain tables — not introduced here; see Phase 4/5 docs and master DR-3.)
 - **DR-4:** Drop `dealers`, `dealer_points`, `dealer_point_transactions` entirely. Remove `DEALER` from `users.role` CHECK constraint.
 - **DR-5:** Collapse `APP_MANAGER`/`APP_VIEWER` into a single `APPLICATION_OWNER` role.
 - **DR-6:** Application deletion is soft-delete only — never `SET NULL`/`CASCADE` on financial history.
@@ -53,6 +53,6 @@ This phase is not customer-facing on its own — it's a migration + authorizatio
 ## Definition of Done
 - [ ] Migration drops dealer tables and role value; `users.role` CHECK updated.
 - [ ] `applications.owner_user_id` nullable-until-accepted, invite-expiry job in place.
-- [ ] Automated test suite proves a Tenant Admin JWT gets 403 on every Application-grain endpoint, including Applications it provisioned itself.
+- [ ] Automated test suite proves a Tenant Admin JWT gets 403 on every Application-grain endpoint, including Applications it provisioned itself. (This blanket rule holds fully in this phase — no billing tables exist yet. Phase 4/5 later carve out narrow, explicit read access to two billing tables per master PRD DR-3; this test suite gets a corresponding exception added then, not now.)
 - [ ] Automated test suite proves a Super Admin JWT gets 403 on every Application-grain endpoint.
 - [ ] No UI in either admin portal renders an order, stock, scan, or cashback figure.

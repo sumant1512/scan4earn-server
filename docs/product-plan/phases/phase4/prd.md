@@ -2,7 +2,7 @@
 
 **Depends on:** Phase 1 (identity), Phase 2 (dashboard shell to host the paywall + billing menu), Phase 3 (reuses payment-gateway infrastructure)
 **Unlocks:** Real, safe onboarding of paying Applications — this is the phase that makes Phase 2's dashboard production-ready
-**Master reference:** `./PRD.md` §6.8 Layer 2, §6.9
+**Master reference:** `../../PRD.md` §6.8 Layer 2, §6.9
 
 ## Goal
 
@@ -16,7 +16,7 @@ Make every individual Application's continued operation contingent on its own pa
 - **FR-11b, FR-11c (gating clause):** The Ecommerce/Scan & Earn menus built in Phase 2 now only render once `application_subscriptions.status = 'active'` — this is the missing "after activation" condition Phase 2 explicitly deferred.
 - **FR-11f:** Renew the subscription, before or after expiry, via the same Activate & Pay flow. Renewal extends `end_date` by the paid duration from whichever is later: the current `end_date` (renewing early) or the payment date (reactivating after a lapse).
 - **FR-16a:** If a scan or storefront request resolves to an Application that is not `active`, the consumer-facing response is a branded "temporarily unavailable" page — never a raw 404/500.
-- **FR-20 (enhancement):** Tenant Admin dashboard's Application list gains per-Application billing columns: price, duration, status, next renewal date.
+- **FR-20 (enhancement):** Tenant Admin dashboard's Application list gains per-Application billing columns: price, duration, status, next renewal date. This is the exact, narrow set of `application_subscriptions` columns master PRD DR-3's Tenant Admin carve-out permits — administrative/billing columns only, never balance amounts or any operational table.
 - **FR-22a (subscription part only):** Both dashboard KPI screens (Phase 2) gain a "Billing" menu item showing this Application's own subscription status, renewal date, and payment history. (The credit-balance half of FR-22a ships in Phase 5.)
 - **FR-31:** If an Application's subscription is not `active` — never-paid, expired, or manually suspended — **every** route for that Application shows the single Activate & Pay page/response:
   - Owner's dashboard — every URL redirects here.
@@ -48,6 +48,6 @@ Ship this alongside, or immediately after, Phase 2 — Phase 2's dashboard is no
 ## Definition of Done
 - [ ] Creating an Application produces a `pending_payment` `application_subscriptions` row; the owner sees nothing but Activate & Pay until it's paid.
 - [ ] Confirmed payment flips the row to `active` and unlocks the full dashboard (both menu groups per `app_type`).
-- [ ] Letting a subscription's `end_date` pass without renewal re-locks the dashboard, the public API, and the scan landing page — verified for all three surfaces, not just the dashboard.
+- [ ] Letting a subscription's `end_date` pass without renewal re-locks the dashboard, the public API, and the scan landing page — verified for all three surfaces, not just the dashboard. (Enforcement runs off a periodic expiry-sweep job flipping `status` to `expired`, not a live `end_date` comparison on every request — verify the lock engages within the sweep's configured interval, not necessarily the exact second `end_date` passes; see HLD §4's documented latency-window tradeoff.)
 - [ ] Renewal (both early and post-lapse) correctly recomputes `end_date` per FR-11f's rule.
 - [ ] A Tenant's own plan lapsing is verified to NOT lock out that Tenant's already-active Applications (FR-33 assumption test) — and creating a *new* Application is verified to be blocked in that state.

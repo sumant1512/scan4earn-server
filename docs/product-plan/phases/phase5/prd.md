@@ -2,7 +2,7 @@
 
 **Depends on:** Phase 1 (identity), Phase 2 (coupon-batch CRUD must already exist to be gated), Phase 3 (payment-gateway infrastructure + existing `tenant_credit_balance` concept)
 **Unlocks:** Closes the loop for scan-and-earn Applications — nothing else depends on this phase
-**Master reference:** `./PRD.md` §6.8 Layer 3
+**Master reference:** `../../PRD.md` §6.8 Layer 3
 
 ## Goal
 
@@ -18,7 +18,7 @@ Add the cascading credit system that governs how many coupons a scan-and-earn (o
 - **FR-11d:** Application Owner requests M credits from their own Tenant; total payable = M × the Tenant's resale rate (or platform default). On confirmed payment, `application_credit_balance` is credited by M and `tenant_credit_balance` is simultaneously debited by M — credits move down the hierarchy, never created out of thin air at the Tenant or Application level.
 - **FR-11e:** Application Owner views their own Application's credit balance and full transaction ledger (requests, payments, batch debits) — scoped to that Application only.
 - **FR-13 (completes the split from Phase 2):** Coupon-batch creation now enforces the gate Phase 2 deferred — a batch can only be created up to the Application's currently available `application_credit_balance`; required credits are debited automatically and atomically at creation time, with no bypass path. Requesting a batch against an insufficient balance is rejected outright, directing the owner to request more credits first (FR-11d).
-- **FR-20 (enhancement):** Tenant Admin dashboard gains a list of pending Application credit requests awaiting approval (i.e., awaiting the requester's payment).
+- **FR-20 (enhancement):** Tenant Admin dashboard gains a list of pending Application credit requests awaiting approval (i.e., awaiting the requester's payment). This is the other table master PRD DR-3's Tenant Admin carve-out permits (`application_credit_requests`, billing/status columns only — never `application_credit_balance`).
 - **FR-22a (credit-balance half):** The Billing menu item added in Phase 4 now also shows, for scan-and-earn/hybrid Applications, the current credit balance and ledger (FR-11e).
 - **Settlement note (not a new FR, but a hard architectural rule):** when a consumer actually scans a coupon and a cashback/points reward triggers, the real UPI payout is always disbursed from the **Super Admin's own configured payment/payout account** (unchanged from today's single `RAZORPAY_ACCOUNT_NUMBER` architecture). Credits are purely an internal entitlement ledger — never a pre-funded escrow for the payout itself. Any implementation spec for this phase must keep these two systems (credit ledger vs. cash settlement) explicitly separate.
 
@@ -32,7 +32,7 @@ Add the cascading credit system that governs how many coupons a scan-and-earn (o
 - **DR-17:** Coupon-batch credit debit moves from `tenant_credit_balance` to `application_credit_balance` — every coupon-batch-creation code path is updated to debit the Application's own balance, not its Tenant's.
 
 ### Non-Functional Requirements
-- **NFR-3:** Every coupon/scan-generating action debits credits with no bypass path — this phase is where the "today's batch path charges 0" defect from the original codebase is fully closed, since the whole gating mechanism is new here.
+- **NFR-3:** Every coupon/scan-generating action debits credits with no bypass path. **Correction (verified against the real codebase during LLD design):** the existing batch-coupon path already debits atomically today, with proper insufficient-balance rejection — there is no "charges 0" defect. This phase's actual job is redirecting that debit's source from `tenant_credit_balance` to `application_credit_balance` (DR-17), reusing the existing atomic-debit mechanism rather than building metering correctness from scratch.
 - Reuses NFR-7, NFR-8, NFR-9, NFR-10 (payment infrastructure) from Phase 3.
 
 ### Resolved Decisions Landing Here

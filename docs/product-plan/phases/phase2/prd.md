@@ -2,7 +2,7 @@
 
 **Depends on:** Phase 1 (Application Owner identity must exist)
 **Unlocks:** Phase 4 (paywall needs a shell to render inside), Phase 5 (credit-gating needs coupon-batch UI to gate), Phase 7 (analytics needs data these screens produce), Phase 8 (real checkout payments need this catalog/order UI to attach to), Phase 9 (mobile-app scan channel needs this coupon-batch/scan UI to exist first)
-**Master reference:** `./PRD.md`
+**Master reference:** `../../PRD.md`
 
 ## Goal
 

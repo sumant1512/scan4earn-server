@@ -1,6 +1,6 @@
 # Scan4Earn — Product Requirements Document
 
-**Status:** Draft v3 — adds consumer OTP identity, two scan-and-earn channels, ecommerce checkout payments (per-Application gateway sub-accounts), address book/invoices, and white-labeled mobile apps, on top of v2's billing/subscription/credit-hierarchy model and unified feature-flagged dashboard
+**Status:** Final
 **Owner:** Sumant Mishra
 **Source of truth for product model:** `product-plan/ideal-application-flow.html`
 
@@ -105,6 +105,7 @@ There is no Dealer role and no App Viewer role. One Application = one owner logi
 - FR-6b: When provisioning an Application (FR-6), also set that Application's own billing terms: a custom price-per-month (numeric input) and a duration in months (1/3/6/9/12). This becomes the Application's first billing cycle — the Application is created in an inert, unpaid state until its owner pays this amount (see §6.9 Activation & Deactivation).
 - FR-6c: Optionally set the Tenant's own credit resale rate (INR per credit) for reselling credits to its own Applications; if unset, falls back to the current platform-wide rate.
 - FR-6d: Approve or reject an Application's credit-purchase request. Approval is automatic upon the Application Owner's confirmed payment, but is only ever possible if the Tenant's own `tenant_credit_balance` currently holds at least the requested amount — the platform refuses to even generate a payable order for the Application if the Tenant lacks sufficient balance, surfacing "Tenant does not have enough credits to sell" rather than accepting a payment it cannot fulfil.
+- FR-6e: A product template (formalizing the rule already stated in §1) may be created by either a Tenant Admin (available to all its Applications) or an Application Owner (a custom template for that Application alone) — never by Super Admin as tenant-facing business configuration. One Application uses exactly one template at a time. A template is freely editable until the first product referencing it is created; from that point it is permanently locked — no further field additions, removals, or type changes, regardless of who created it.
 
 ### 6.3 Application Owner
 
@@ -218,7 +219,7 @@ This layer exists only for the scan-and-earn half of an Application's activity (
 
 - DR-1: Every business-operational table carries `application_id` (NOT NULL): `products`, `coupons`, `coupon_batches`, `ecommerce_orders`, `scans`, `points_transactions`, `cashback_transactions`, `stock_movements`, `webhooks`, `api_usage_logs`.
 - DR-2: Every `applications` row carries exactly one `owner_user_id` (NOT NULL once the owner-invite is accepted; NULL only in the brief pre-acceptance state, during which the Application is fully inert — no scans, no orders, no API calls possible).
-- DR-3: Tenant-grain tables (`tenants`, `tenant_credit_balance`, `credit_requests`, `tenant_subscriptions`, `product_templates`, `custom_domains`) are the only tables Super Admin/Tenant Admin queries may touch.
+- DR-3: Tenant-grain tables (`tenants`, `tenant_credit_balance`, `credit_requests`, `tenant_subscriptions`, `custom_domains`) are the only tables Super Admin/Tenant Admin queries may touch. **Carve-out:** a Tenant Admin may additionally query its own Applications' `application_subscriptions` and `application_credit_requests` rows, but only the administrative/billing columns already listed in FR-20 plus the fields a Tenant Admin needs to actually act on a pending request — price, duration, status, next renewal date, requested amount, rate applied, total payable, requested-at timestamp, request status — never `application_credit_balance`, `application_credit_transactions`, or any order/scan/cashback/inventory table. This is the one intentional, narrow exception to the Application-grain boundary in FR-10/NFR-1, required by FR-6d/FR-20; it is not a general grant of Application-grain access. **`product_templates`** is not purely Tenant-grain: per FR-6e (below), an Application may also own its own custom template row, scoped by `application_id`, visible only to that Application's owner and the provisioning Tenant Admin (read-only for the Tenant Admin, per the existing FR-9/FR-20 administrative-list pattern) — never to Super Admin as business data, and never exposing product-level data alongside it.
 - DR-4: Remove `dealers`, `dealer_points`, `dealer_point_transactions` tables entirely. Remove `DEALER` from the `users.role` CHECK constraint.
 - DR-5: Collapse `APP_MANAGER`/`APP_VIEWER` into a single `APPLICATION_OWNER` role — one tier, no read-only variant.
 - DR-6: Application deletion is soft-delete only — never `SET NULL` or `CASCADE` on financial history (orders, scans, cashback, points).
@@ -246,8 +247,8 @@ This layer exists only for the scan-and-earn half of an Application's activity (
 
 - NFR-1 (Authorization boundary as architecture, not UI): The FR-5/FR-10 data boundary must be enforced in the authorization middleware layer — any code path that would let a Super Admin or Tenant Admin session query an Application-grain table is a P0 security bug, not a feature gap. This should be covered by an automated check (e.g. a CI lint/test asserting which roles may reach which table-backed endpoints).
 - NFR-2 (Session scope): `scope = min(role, host) AND identity = registered owner` for any Application-scoped route — enforced server-side on every request, not only in client-side routing/menus.
-- NFR-3 (Credit metering correctness): Every coupon/scan-generating action debits credits, with no bypass path (today's batch-coupon path charging 0 is a known defect to fix).
-- NFR-4 (Coupon code entropy): Generated codes must be non-enumerable/random, not sequential.
+- NFR-3 (Credit metering correctness): Every coupon/scan-generating action debits credits, with no bypass path. **Correction (verified against the real codebase during LLD design):** the existing batch-coupon path already debits correctly and atomically today, with proper insufficient-balance rejection — there is no "charges 0" defect. The actual work this NFR requires is redirecting that debit's *source* from `tenant_credit_balance` to `application_credit_balance` (DR-17), not fixing a metering bug.
+- NFR-4 (Coupon code entropy): Generated codes must be non-enumerable/random, not sequential. **Correction (verified against the real codebase):** the existing code generator already produces CSPRNG non-enumerable codes — there is no sequential-code defect to fix. This NFR exists to guard against regressing that property, not to correct it.
 - NFR-5 (Domain lifecycle): TLS auto-issue/auto-renew with alerting on failure; DNS drift detection; reserved-namespace blocklist for Tenant slugs and `custom_domains` hostnames; Application soft-delete deactivates its domains with a branded 410, not a bare error.
 - NFR-6 (Multi-tenancy isolation): Composite FKs / `UNIQUE(id, tenant_id)` constraints prevent an Application under one Tenant from ever referencing data belonging to another Tenant.
 - NFR-7 (Payment gateway integration): All four payment surfaces (Tenant→Super Admin subscription, Tenant→Super Admin credit purchase, Application→Tenant subscription, Application→Tenant credit purchase) use the same integration pattern: create a gateway Order/Payment Link, redirect/embed checkout, verify the payment via a **signed webhook** (never trust a client-side "payment done" callback alone), and only flip the corresponding row to active/approved once the webhook signature is verified. This extends the existing Razorpay integration (`paymentGateway.service.js`, currently payout-only) to also cover inbound Orders/Payment Links.
@@ -294,5 +295,5 @@ This layer exists only for the scan-and-earn half of an Application's activity (
 
 ## 11. References
 
-- `product-review/ideal-application-flow.html` — full interactive product blueprint (roles, routing, worked examples, lifecycle flows, dashboards, data model, production rulebook).
+- `product-plan/ideal-application-flow.html` — full interactive product blueprint (roles, routing, worked examples, lifecycle flows, dashboards, data model, production rulebook).
 - `scan4earn-database/full_setup.sql`, `scan4earn-database/seeds/001_seed_data.sql` — current schema and seed data (pre-dates this model; migration required for DR-4/DR-5/DR-6).

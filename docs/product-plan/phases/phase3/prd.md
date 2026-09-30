@@ -2,7 +2,7 @@
 
 **Depends on:** Phase 1 (Tenants and roles must exist)
 **Unlocks:** Phase 4 and Phase 5 both reuse the payment-gateway infrastructure built here
-**Master reference:** `./PRD.md` §6.8 Layer 1
+**Master reference:** `../../PRD.md` §6.8 Layer 1
 
 ## Goal
 

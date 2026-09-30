@@ -2,7 +2,7 @@
 
 **Depends on:** Phase 1 (Tenants and Applications must exist to have anything to point a domain at)
 **Unlocks:** Nothing else depends on this — it can be parallelized with Phases 2–5 if resourcing allows (see Rollout Note)
-**Master reference:** `./PRD.md` §6.6
+**Master reference:** `../../PRD.md` §6.6
 
 ## Goal
 

@@ -2,7 +2,7 @@
 
 **Depends on:** Phase 1 (Application/role foundation), Phase 2 (ecommerce catalog/CRUD to check out against), Phase 3 (reuses the signed-webhook payment *pattern* — but see Rollout Note, this is not a drop-in reuse)
 **Unlocks:** Phase 9 (shares this phase's consumer-identity model as its foundation)
-**Master reference:** `./PRD.md` §6.10, §6.11 (added in PRD v3)
+**Master reference:** `../../PRD.md` §6.10, §6.11
 
 ## Goal
 

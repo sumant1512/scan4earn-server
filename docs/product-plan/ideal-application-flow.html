@@ -633,9 +633,9 @@
     <div class="flow">
       <div class="box b-green"><b>1. Mr. Pal requests credits</b><small>from his own Tenant (Raj), pays for them; Raj can only approve if his own Tenant balance covers it (bought from Super Admin the same way) <span class="tag new">cascade is new</span></small></div>
       <div class="ar">→</div>
-      <div class="box b-green"><b>2. Create batch</b><small>reward type (points/cashback), quantity, expiry — capped at &amp; auto-debited from his Application's own credit balance (today's batch path charges 0, bypassing the meter — this fixes it)</small></div>
+      <div class="box b-green"><b>2. Create batch</b><small>reward type (points/cashback), quantity, expiry — capped at &amp; auto-debited from his Application's own credit balance (the debit itself already works correctly today at the Tenant level; this phase redirects its source to the Application's own balance)</small></div>
       <div class="ar">→</div>
-      <div class="box b-green"><b>3. Generate codes + QR</b><small>random, non-enumerable codes (today's batch path emits sequential <code>CP-000031…</code>)</small></div>
+      <div class="box b-green"><b>3. Generate codes + QR</b><small>random, non-enumerable codes — already the case today via the existing code generator, carried forward unchanged</small></div>
       <div class="ar">→</div>
       <div class="box b-green"><b>4. Print &amp; activate</b><small>ONE lifecycle: draft → printed → active</small></div>
       <div class="ar">→</div>

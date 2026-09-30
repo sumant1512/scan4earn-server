@@ -2,7 +2,7 @@
 
 **Depends on:** Phase 1 (identity foundation), Phase 2 (scan-and-earn CRUD + the existing guest-scan flow, FR-16), Phase 8 (shares its consumer-identity model so guest-scan and mobile-app accounts are the same underlying account)
 **Unlocks:** Nothing else — this completes the scan-and-earn consumer experience alongside Phase 5's credit metering (no functional dependency between the two: Phase 5 gates *batch creation*, this phase concerns *scanning itself*, which was never credit-gated)
-**Master reference:** `./PRD.md` §6.12, §6.13 (added in PRD v3)
+**Master reference:** `../../PRD.md` §6.12, §6.13
 
 ## Goal
 

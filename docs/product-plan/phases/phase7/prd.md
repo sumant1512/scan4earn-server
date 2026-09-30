@@ -2,7 +2,7 @@
 
 **Depends on:** Phases 1–6 (needs real traffic — orders, scans, payments, domains — actually flowing to have anything meaningful to visualize)
 **Unlocks:** Nothing further — this is the final polish layer of the v1 roadmap
-**Master reference:** `./PRD.md` §6.5
+**Master reference:** `../../PRD.md` §6.5
 
 ## Goal
 
